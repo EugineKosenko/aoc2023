@@ -1,0 +1,152 @@
+#+title: Adventure of Code, 2023, день 1
+
+* =Cargo=
+:PROPERTIES:
+:ID:       cfb1a695-aeaa-414e-9e89-e18257968d8b
+:END:
+
+#+begin_src toml :noweb yes :tangle Cargo.toml
+  [package]
+  name = "AoC-2023"
+  version = "0.1.0"
+  edition = "2021"
+
+  # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+  [dependencies]
+  <<aoc:Cargo:Залежності>>
+#+end_src
+
+* Частина 1
+:PROPERTIES:
+:ID:       810cd5e6-619b-473e-8794-c38ff6d7d15b
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day1_1.rs
+  <<day1:Декларації>>
+    
+  fn main() {
+      <<day1:Прочитати-рядки>>
+      <<day1_1:Дії>>
+  }
+#+end_src
+
+Прочитаємо вектор рядків із файла.
+
+#+begin_src rust :noweb-ref day1:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day1:Прочитати-рядки
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file).lines().collect::<Vec<_>>();
+#+end_src
+
+Перебираємо рядки.
+
+#+begin_src rust :noweb yes :noweb-ref day1_1:Дії
+  let mut s = 0;
+  for line in lines {
+      let line = line.unwrap();
+      <<day1_1:Обробити-рядок>>
+  }
+#+end_src
+
+Для кожного рядка оберемо тільки цифри. Перетворимо першу і останню цифри в ціле число.
+
+#+begin_src rust :noweb-ref day1_1:Обробити-рядок
+  let digits = line.chars().filter(|c| c.is_digit(10)).collect::<Vec<_>>();
+  s += format!("{}{}", digits.first().unwrap(), digits.last().unwrap())
+      .parse::<usize>().unwrap();
+#+end_src
+
+Роздукуємо результат.
+
+#+begin_src rust :noweb-ref day1_1:Дії
+  println!("{}", s);
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       08e71241-c26d-4459-8368-a16fec16df82
+:END:
+
+Тут перша і остання цифри можуть мати текстове представлення. Тому ми маємо розбирати рядок за допомогою
+регулярних виразів.
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day1_2.rs
+  <<day1:Декларації>>
+  <<day1_2:Декларації>>
+    
+  <<day1_2:Визначення>>
+    
+  fn main() {
+      <<day1:Прочитати-рядки>>
+      <<day1_2:Дії>>
+  }
+#+end_src
+
+Визначимо регулярний вираз, який дозволяє отримати чергову цифру.
+
+#+begin_src rust :noweb-ref aoc:Cargo:Залежності
+  regex = "*"
+  lazy_static = "*"
+#+end_src
+
+#+begin_src rust :noweb-ref day1_2:Дії
+  lazy_static::lazy_static! {
+      static ref RE_LINE: regex::Regex = regex::Regex::new(r"^(?P<digit>\d|one|two|three|four|five|six|seven|eight|nine)(?P<rest>.*)$").unwrap();
+  }
+#+end_src
+
+Переберемо рядки.
+
+#+begin_src rust :noweb yes :noweb-ref day1_2:Дії
+  let mut s = 0;
+  for line in lines {
+      let mut line = line.unwrap();
+      <<day1_2:Обробити-рядок>>
+  }
+  println!("{}", s);
+#+end_src
+
+Розберемо рядок в циклі, поки він не стає пустим.
+
+#+begin_src rust :noweb yes :noweb-ref day1_2:Обробити-рядок
+  let mut first = None;
+  let mut last = None;
+  while !line.is_empty() {
+      <<day1_2:Розібрати-рядок>>
+  }
+#+end_src
+
+Співставлємо рядок з регулярним виразом. Якщо співставлення невдале, видаляємо з рядка перший символ і
+повторюємо процедуру. В іншому випадку друкуємо "цифру" і видаляємо її із рядка.
+
+#+begin_src rust :noweb yes :noweb-ref day1_2:Розібрати-рядок
+  if let Some(cps) = RE_LINE.captures(&line) {
+      let digit = match cps.name("digit").unwrap().as_str() {
+          "one" => 1,
+          "two" => 2,
+          "three" => 3,
+          "four" => 4,
+          "five" => 5,
+          "six" => 6,
+          "seven" => 7,
+          "eight" => 8,
+          "nine" => 9,
+          d => d.parse::<usize>().unwrap()
+      };
+      if first.is_none() { first = Some(digit); }
+      last = Some(digit);
+  }
+  line.remove(0);
+#+end_src
+
+Перетворимо пару цифр на число і додамо його до суми.
+
+#+begin_src rust :noweb yes :noweb-ref day1_2:Обробити-рядок
+  s += format!("{}{}", first.unwrap(), last.unwrap())
+      .parse::<usize>().unwrap();
+#+end_src
