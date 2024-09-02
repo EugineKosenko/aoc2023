@@ -1,0 +1,224 @@
+#+title: Adventure of Code, 2023, день 2
+
+* Частина 1
+:PROPERTIES:
+:ID:       605f42d1-8566-4cb5-956e-d6c70d4445bb
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day2_1.rs
+  <<day2:Декларації>>
+
+  <<day2:Визначення>>
+    
+  fn main() {
+      <<day2_1:Встановити-ліміт>>
+      <<day2:Прочитати-рядки>>
+      <<day2_1:Дії>>
+  }
+#+end_src
+
+Прочитаємо вектор рядків із файла.
+
+#+begin_src rust :noweb-ref day2:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day2:Прочитати-рядки
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file).lines().collect::<Vec<_>>();
+#+end_src
+
+Перебираємо рядки. Для кожного рядка ми визначаємо ідентифікатор гри ~game_id~ та ознаку того, що гра
+правильна ~game_is_proper~. Якщо гра правильна, додаємо її ідентифікатор до суми, яку і виводимо, як
+результат програми.
+
+#+begin_src rust :noweb yes :noweb-ref day2_1:Дії
+  let mut s = 0;
+  for line in lines {
+      let mut line = line.unwrap();
+      let mut game_is_proper = true;
+      <<day2_1:Обробити-рядок>>
+      if game_is_proper { s = s + game_id }
+  }
+  println!("{}", s);
+#+end_src
+
+Для отримання ідентифікатора гри розберемо рядок.
+
+#+begin_src rust :noweb yes :noweb-ref day2_1:Обробити-рядок
+  lazy_static::lazy_static! {
+      static ref RE_GAME: regex::Regex = regex::Regex::new(r"^Game (?P<id>\d+): (?P<rest>.+)$").unwrap();
+  }
+  let cps = RE_GAME.captures(&line).unwrap();
+  let game_id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
+  line = cps.name("rest").unwrap().as_str().to_owned();
+#+end_src
+
+В описі гри перелічимо усі /раунди/.
+
+#+begin_src rust :noweb yes :noweb-ref day2_1:Обробити-рядок
+  lazy_static::lazy_static! {
+      static ref RE_ROUND: regex::Regex = regex::Regex::new(r"^(?P<round>[^;]+)(; )?(?P<rest>.*)$").unwrap();
+  }
+  while game_is_proper && !line.is_empty() {
+      let cps = RE_ROUND.captures(&line).unwrap();
+      let round = cps.name("round").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_owned();
+      <<day2_1:Обробити-раунд>>
+  }
+#+end_src
+
+Оформимо раунд як структуру з полями для кожного кольору. Виведемо автоматично значення за замовчуванням.
+
+#+begin_src rust :noweb yes :noweb-ref day2:Визначення
+  #[derive(Default, Debug)]
+  struct Round {
+      red: usize,
+      green: usize,
+      blue: usize
+  }
+
+  impl Round {
+      <<day2:Round:Визначення>>
+  }
+#+end_src
+
+Коректний раунд має бути таким, щоб не виходити за межі, надані у завданні. Визначимо ці межі як
+спеціальний раунд ~limit~.
+
+#+begin_src rust :noweb yes :noweb-ref day2_1:Встановити-ліміт
+  let limit = Round {
+      red: 12,
+      green: 13,
+      blue: 14
+  };
+#+end_src
+
+Визначимо функцію ~is_fit~, яка перевіряє, що раунд вкладається у задані межі. Це схоже на перевірку
+часткового порядку, але вимагає специфічних перевірок.
+
+#+begin_src rust :noweb yes :noweb-ref day2:Round:Визначення
+  fn is_fit(&self, limit: &Self) -> bool {
+      return self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue;
+  }
+#+end_src
+
+Навчимося читати раунд з рядка, для цього реалізуємо трейт ~FromStr~.
+
+#+begin_src rust :noweb yes :noweb-ref day2:Декларації
+  use std::str::FromStr;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day2:Визначення
+  impl FromStr for Round {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          let mut line = s.to_owned();
+          let mut result = Self::default();
+          <<day2:FromStr:from_str:Дії>>
+          Ok(result)
+      }
+  }
+#+end_src
+
+Переберемо в описі раунду усі елементи.
+
+#+begin_src rust :noweb yes :noweb-ref day2:FromStr:from_str:Дії
+  lazy_static::lazy_static! {
+      static ref RE_ITEM: regex::Regex = regex::Regex::new(r"^(?P<count>\d+) (?P<color>red|green|blue)(, )?(?P<rest>.*)$").unwrap();
+  }
+  while !line.is_empty() {
+      let cps = RE_ITEM.captures(&line).unwrap();
+      let count = cps.name("count").unwrap().as_str().parse::<usize>().unwrap();
+      let color = cps.name("color").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_owned();
+      <<day2:FromStr:from_str:Обробити-колір>>
+  }
+#+end_src
+
+Оновлюємо результат для отриманого кольору.
+
+#+begin_src rust :noweb yes :noweb-ref day2:FromStr:from_str:Обробити-колір
+  result = match color.as_str() {
+      "red" => Round { red: count,..result },
+      "green" => Round { green: count,..result },
+      "blue" => Round { blue: count,..result },
+      color => { return Err(format!("Unknown color {}", color)); }
+  };
+#+end_src
+
+При обробці раунду перетворюємо його на структуру і перевіряємо, чи є він коректним.
+
+#+begin_src rust :noweb yes :noweb-ref day2_1:Обробити-раунд
+  let round = round.parse::<Round>().unwrap();
+  println!("{:?} --- {}", &round, round.is_fit(&limit));
+  game_is_proper = round.is_fit(&limit);
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       95a7fd01-cd52-4471-88c3-76fbf49ff978
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day2_2.rs
+  <<day2:Декларації>>
+
+  <<day2:Визначення>>
+    
+  fn main() {
+      <<day2:Прочитати-рядки>>
+      <<day2_2:Дії>>
+  }
+#+end_src
+
+Перебираємо рядки. Для кожного рядка ми визначаємо /потужність/, яку додаємо до суми.
+
+#+begin_src rust :noweb yes :noweb-ref day2_2:Дії
+  let mut s = 0;
+  for line in lines {
+      let mut line = line.unwrap();
+      <<day2_2:Обробити-рядок>>
+      s = s + power;
+  }
+  println!("{}", s);
+#+end_src
+
+Оскільки нам непотрібні ідентифікатори ігор, ми їх просто пропускаємо.
+
+#+begin_src rust :noweb yes :noweb-ref day2_2:Обробити-рядок
+  lazy_static::lazy_static! {
+      static ref RE_GAME: regex::Regex = regex::Regex::new(r"^Game (?P<id>\d+): (?P<rest>.+)$").unwrap();
+  }
+  let cps = RE_GAME.captures(&line).unwrap();
+  line = cps.name("rest").unwrap().as_str().to_owned();
+#+end_src
+
+Визначимо результуючий раунд. Перелічимо усі раунди, і для кожного раунду змінимо результуючий.
+
+#+begin_src rust :noweb yes :noweb-ref day2_2:Обробити-рядок
+  lazy_static::lazy_static! {
+      static ref RE_ROUND: regex::Regex = regex::Regex::new(r"^(?P<round>[^;]+)(; )?(?P<rest>.*)$").unwrap();
+  }
+  let mut result = Round::default();
+  while !line.is_empty() {
+      let cps = RE_ROUND.captures(&line).unwrap();
+      let round = cps.name("round").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_owned();
+      <<day2_2:Обробити-раунд>>
+  }
+  let power = result.red * result.green * result.blue;
+#+end_src
+
+При обробці раунда перетворимо його на структуру, після чого оновимо результат, підбираючи максимальні
+значення.
+
+#+begin_src rust :noweb yes :noweb-ref day2_2:Обробити-раунд
+  let round = round.parse::<Round>().unwrap();
+  result = Round {
+      red: result.red.max(round.red),
+      green: result.green.max(round.green),
+      blue: result.blue.max(round.blue)
+  };
+#+end_src
