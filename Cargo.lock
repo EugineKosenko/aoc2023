@@ -6,6 +6,7 @@ version = 3
 name = "AoC-2023"
 version = "0.1.0"
 dependencies = [
+ "grid",
  "lazy_static",
  "regex",
 ]
@@ -18,6 +19,12 @@ checksum = "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "grid"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be136d9dacc2a13cc70bb6c8f902b414fb2641f8db1314637c6b7933411a8f82"
 
 [[package]]
 name = "lazy_static"

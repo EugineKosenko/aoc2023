@@ -1,22 +1,5 @@
 #+title: Adventure of Code, 2023, день 1
 
-* =Cargo=
-:PROPERTIES:
-:ID:       cfb1a695-aeaa-414e-9e89-e18257968d8b
-:END:
-
-#+begin_src toml :noweb yes :tangle Cargo.toml
-  [package]
-  name = "AoC-2023"
-  version = "0.1.0"
-  edition = "2021"
-
-  # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-  [dependencies]
-  <<aoc:Cargo:Залежності>>
-#+end_src
-
 * Частина 1
 :PROPERTIES:
 :ID:       810cd5e6-619b-473e-8794-c38ff6d7d15b
@@ -88,11 +71,6 @@
 #+end_src
 
 Визначимо регулярний вираз, який дозволяє отримати чергову цифру.
-
-#+begin_src rust :noweb-ref aoc:Cargo:Залежності
-  regex = "*"
-  lazy_static = "*"
-#+end_src
 
 #+begin_src rust :noweb-ref day1_2:Дії
   lazy_static::lazy_static! {

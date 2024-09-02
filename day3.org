@@ -1,0 +1,190 @@
+#+title: Adventure of Code, 2023, день 3
+
+* Частина 1
+:PROPERTIES:
+:ID:       f27c5383-20e3-42a2-915f-07d95819ec06
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day3_1.rs
+  <<day3:Декларації>>
+
+  <<day3:Визначення>>
+    
+  fn main() {
+      let mut result = 0;
+      <<day3:Прочитати-дані>>
+      <<day3_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Прочитаємо рядки.
+
+#+begin_src rust :noweb-ref day3:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day3:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file).lines().collect::<Vec<_>>();
+#+end_src
+
+Заповнимо матрицю з рядків.
+
+#+begin_src rust :noweb-ref day3:Прочитати-дані
+  let mut grid = grid::Grid::new(0, 0);
+  for line in lines {
+      grid.push_row(line.unwrap().chars().collect());
+  }
+#+end_src
+
+** Пошук номерів
+
+Перебираємо рядки з індексом ~i~, і в кожному рядку елементи з індексом ~j1~, який відповідатиме початку
+номера.
+
+За заданим індексом отримаємо літеру і перевіримо, чи це цифра. Якщо це цифра, створюємо нову строку ~n~
+і заповнюємо її рядком цифр до тих пір, поки вони є в рядку. Для цього перебираємо літери в рядку за
+допомогою індекса ~j2~.
+
+#+begin_src rust :noweb yes :noweb-ref day3_1:Дії
+  for i in 0..grid.rows() {
+      let mut j1 = 0;
+      while j1 < grid.cols() {
+          if grid.get(i, j1).unwrap().is_digit(10) {
+              let mut n = String::new();
+              let mut j2 = j1;
+              while j2 < grid.cols() && grid.get(i, j2).unwrap().is_digit(10) {
+                  n.push(*grid.get(i, j2).unwrap());
+                  j2 += 1;
+              }
+              let n = n.parse::<usize>().unwrap();
+              let mut is_adjacent = false;
+              <<day3_1:Перевірити-номер>>
+              if is_adjacent {
+                  result += n;
+              }
+              j1 = j2 - 1;
+          }
+          j1 += 1;
+      }
+  }
+#+end_src
+
+** Перевірка номера
+
+Номер враховується, якщо він є "дотичним" до символу. Символом може бути будь-яка літера, окрім цифри або
+крапки (~.~). Щоб перевірити дотичність, треба перебрати усі літери в "оточенні" числа, яке починається з
+~(i-1, j1-1)~, і закінчується в ~(i+1, j2+1)~. При цьому треба враховувати вихід за межі матриці.
+
+Для кожної літери з оточення, якщо це символ (не цифра і не крапка), встановлюємо прапорець ~is_adjacent~
+і перериваємо перебір.
+
+#+begin_src rust :noweb yes :noweb-ref day3_1:Перевірити-номер
+  for k in (i.max(1)-1)..(grid.rows().min(i+2)) {
+      for l in (j1.max(1)-1)..(grid.cols().min(j2+1)) {
+          let c = *grid.get(k, l).unwrap();
+          if !c.is_digit(10) && c != '.' {
+              is_adjacent = true;
+              break;
+          }
+      }
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       98ef7570-bb23-45ee-8c01-093fed79466b
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day3_2.rs
+  <<day3:Декларації>>
+
+  <<day3:Визначення>>
+    
+  fn main() {
+      let mut result = 0;
+      <<day3:Прочитати-дані>>
+      <<day3_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Пошук номерів
+
+Перебираємо рядки з індексом ~i~, і в кожному рядку елементи з індексом ~j1~, який відповідатиме початку
+номера.
+
+За заданим індексом отримаємо літеру і перевіримо, чи це цифра. Якщо це цифра, створюємо нову строку ~n~
+і заповнюємо її рядком цифр до тих пір, поки вони є в рядку. Для цього перебираємо літери в рядку за
+допомогою індекса ~j2~.
+
+Для кожного номера перевіряється його "дотичність" до "шестерні". Якщо номер дотичний, ми зберігатимо в
+мапі шестерней координати шестерні і вектор "дотичних" номерів.
+
+#+begin_src rust :noweb yes :noweb-ref day3:Декларації
+  use std::collections::BTreeMap;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day3_2:Дії
+  let mut gears: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+  for i in 0..grid.rows() {
+      let mut j1 = 0;
+      while j1 < grid.cols() {
+          if grid.get(i, j1).unwrap().is_digit(10) {
+              let mut n = String::new();
+              let mut j2 = j1;
+              while j2 < grid.cols() && grid.get(i, j2).unwrap().is_digit(10) {
+                  n.push(*grid.get(i, j2).unwrap());
+                  j2 += 1;
+              }
+              let n = n.parse::<usize>().unwrap();
+              <<day3_2:Перевірити-номер>>
+              j1 = j2 - 1;
+          }
+          j1 += 1;
+      }
+  }
+#+end_src
+
+** Перевірка номера
+
+Номер враховується, якщо він є "дотичним" до символу "шестерні" (~*~). Щоб перевірити дотичність, треба
+перебрати усі літери в "оточенні" числа, яке починається з ~(i-1, j1-1)~, і закінчується в ~(i+1,
+j2+1)~. При цьому треба враховувати вихід за межі матриці.
+
+Для кожної літери з оточення, якщо це символ (не цифра і не крапка), встановлюємо прапорець ~is_adjacent~
+і перериваємо перебір.
+
+#+begin_src rust :noweb yes :noweb-ref day3_2:Перевірити-номер
+  for k in (i.max(1)-1)..(grid.rows().min(i+2)) {
+      for l in (j1.max(1)-1)..(grid.cols().min(j2+1)) {
+          let c = *grid.get(k, l).unwrap();
+          if c == '*' {
+              let mut v = match gears.get(&(k, l)) {
+                  None => vec![],
+                  Some(v) => v.to_vec()
+              };
+              v.push(n);
+              gears.insert((k, l), v);
+          }
+      }
+  }
+#+end_src
+
+** Обробка шестерень
+
+Переберемо усі шестерні і відберемо тільки ті, де вектор містить рівно два номери. Для кожного такого
+вектора додамо до результата добуток значень.
+
+#+begin_src rust :noweb yes :noweb-ref day3_2:Дії
+  for ns in gears.values() {
+      if ns.len() == 2 {
+          result += ns[0] * ns[1];
+      }
+  }
+#+end_src
+
