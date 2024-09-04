@@ -1,0 +1,190 @@
+#+title: Adventure of Code, 2023, день 4
+
+* Частина 1
+:PROPERTIES:
+:ID:       a7e2a3b2-5332-4f54-ac52-ae0271cd1171
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day4_1.rs
+  <<day4:Декларації>>
+
+  <<day4:Визначення>>
+    
+  fn main() {
+      let mut result = 0;
+      <<day4:Прочитати-дані>>
+      <<day4_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Прочитаємо рядки.
+
+#+begin_src rust :noweb-ref day4:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day4:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file).lines().collect::<Vec<_>>();
+#+end_src
+
+** Обробка карток
+
+Переберемо картки.
+
+#+begin_src rust :noweb yes :noweb-ref day4_1:Дії
+  for line in lines {
+      let line = line.unwrap();
+      <<day4:Прочитати-картку>>
+      <<day4_1:Обробити-картку>>
+  }
+#+end_src
+
+Розберемо картку на опис і два переліка.
+
+#+begin_src rust :noweb-ref day4:Прочитати-картку
+  lazy_static::lazy_static! {
+      static ref RE_CARD: regex::Regex = regex::Regex::new(r"^Card( )+(?P<id>\d+):( )+(?P<win>[\d ]+) \|( )+(?P<all>[\d ]+)$").unwrap();
+  }
+  let cps = RE_CARD.captures(&line).unwrap();
+  let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
+  let win = cps.name("win").unwrap().as_str().parse::<NumSet>().unwrap();
+  let all = cps.name("all").unwrap().as_str().parse::<NumSet>().unwrap();
+#+end_src
+
+Для переліків підрахуємо кількість спільних елементів (потужність перетину) і обчислимо вартість ~score~,
+який додамо до результата.
+
+#+begin_src rust :noweb-ref day4_1:Обробити-картку
+  let count = win.intersection(&all).count();
+  let score = if count > 0 { 1 << (count - 1) } else { 0 };
+  result += score;
+#+end_src
+
+** Набір карток
+
+Визначимо набір номерів як обгортку для стандартної множини ~BTreeSet~.
+
+#+begin_src rust :noweb-ref day4:Декларації
+  use std::collections::BTreeSet;
+#+end_src
+
+#+begin_src rust :noweb-ref day4:Визначення
+  #[derive(Default, Debug)]
+  struct NumSet(BTreeSet<usize>);
+#+end_src
+
+Для зручності визначимо автоматичну "розпаковку".
+
+#+begin_src rust :noweb-ref day4:Декларації
+  use std::ops::{Deref, DerefMut};
+#+end_src
+
+#+begin_src rust :noweb-ref day4:Визначення
+  impl Deref for NumSet {
+      type Target = BTreeSet<usize>;
+
+      fn deref(&self) -> &Self::Target {
+          &self.0
+      }
+  }
+
+  impl DerefMut for NumSet {
+      fn deref_mut(&mut self) -> &mut Self::Target {
+          &mut self.0
+      }
+  }
+#+end_src
+
+Реалізуємо отримання набору з рядка.
+
+#+begin_src rust :noweb-ref day4:Декларації
+  use std::str::FromStr;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day4:Визначення
+  impl FromStr for NumSet {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          let mut line = s.to_owned();
+          let mut result = Self::default();
+          <<day4:FromStr:from_str:Дії>>
+          Ok(result)
+      }
+  }
+#+end_src
+
+Переберемо в описі набору усі елементи і додамо їх в результат.
+
+#+begin_src rust :noweb yes :noweb-ref day4:FromStr:from_str:Дії
+  lazy_static::lazy_static! {
+      static ref RE_ITEM: regex::Regex = regex::Regex::new(r"^(?P<item>\d+)( )*(?P<rest>.*)$").unwrap();
+  }
+  while !line.is_empty() {
+      let cps = RE_ITEM.captures(&line).unwrap();
+      let item = cps.name("item").unwrap().as_str().parse::<usize>().unwrap();
+      result.insert(item);
+      line = cps.name("rest").unwrap().as_str().to_owned();
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       0bb3fe07-1830-452a-9520-444637145c98
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day4_2.rs
+  <<day4:Декларації>>
+
+  <<day4:Визначення>>
+    
+  fn main() {
+      let mut result = 0;
+      <<day4:Прочитати-дані>>
+      <<day4_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Обробка карток
+
+Створимо вектор кількості виграних карток ~scores~. Спочатку він заповнений одиницями, оскільки кожна
+картка обов'язково враховується рівно один раз. Після цього переберемо усі рядки.
+
+#+begin_src rust :noweb yes :noweb-ref day4_2:Дії
+  let mut scores = vec![1; lines.len()];
+  let mut i = 0;
+  for line in lines {
+      let line = line.unwrap();
+      <<day4:Прочитати-картку>>
+      <<day4_2:Обробити-картку>>
+      i += 1;
+  }
+#+end_src
+
+Додамо до результату виграш поточної картки.
+
+#+begin_src rust :noweb yes :noweb-ref day4_2:Обробити-картку
+  result += scores[i];
+#+end_src
+
+Отримаємо кількість виграних карток ~count~.
+
+#+begin_src rust :noweb yes :noweb-ref day4_2:Обробити-картку
+  let count = win.intersection(&all).count();
+#+end_src
+
+Для усіх ~count~ карток одразу після цієї додамо до ~scores~ для цих карток вартість поточної картки
+(виграні копії). При цьому враховуємо вихід за межі вектора ~scores~.
+
+#+begin_src rust :noweb yes :noweb-ref day4_2:Обробити-картку
+  for j in (i+1)..(scores.len().min(i+count+1)) {
+      scores[j] += scores[i];
+  }
+#+end_src
+
