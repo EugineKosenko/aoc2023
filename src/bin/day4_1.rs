@@ -48,7 +48,7 @@ fn main() {
             static ref RE_CARD: regex::Regex = regex::Regex::new(r"^Card( )+(?P<id>\d+):( )+(?P<win>[\d ]+) \|( )+(?P<all>[\d ]+)$").unwrap();
         }
         let cps = RE_CARD.captures(&line).unwrap();
-        let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
+        // let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
         let win = cps.name("win").unwrap().as_str().parse::<NumSet>().unwrap();
         let all = cps.name("all").unwrap().as_str().parse::<NumSet>().unwrap();
         let count = win.intersection(&all).count();

@@ -1,0 +1,374 @@
+#+title: Adventure of Code, 2023, день 5
+
+* Частина 1
+:PROPERTIES:
+:ID:       dbaf05a5-0e11-4677-a421-9caece99367c
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day5_1.rs
+  <<day5:Декларації>>
+
+  <<day5:Визначення>>
+    
+  fn main() {
+      <<day5:Прочитати-рядки>>
+      <<day5_1:Прочитати-засів>>
+      <<day5:Прочитати-мапи>>
+      <<day5_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Прочитаємо рядки.
+
+Файл даних суттєво неоднорідний, тому будемо обробляти рядки за допомогою ітератора.
+
+#+begin_src rust :noweb-ref day5:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day5:Прочитати-рядки
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let mut lines = io::BufReader::new(file)
+      .lines()
+      .map(|l| l.unwrap())
+      .peekable();
+#+end_src
+
+** Читання засіву
+
+Прочитаємо вектор засіву ~seeds~. Для цього візьмемо перший рядок.
+
+#+begin_src rust :noweb-ref day5_1:Прочитати-засів
+  let mut seeds = Vec::<usize>::new();
+  let line = lines.next().unwrap().to_owned();
+#+end_src
+
+Розберемо рядок і виберемо тільки перелік ідентифікаторів.
+
+#+begin_src rust :noweb-ref day5_1:Прочитати-засів
+  lazy_static::lazy_static! {
+      static ref RE_SEEDS: regex::Regex = regex::Regex::new(r"^seeds: (?P<rest>[\d ]+)$").unwrap();
+  }
+  let cps = RE_SEEDS.captures(&line).unwrap();
+  let mut line = cps.name("rest").unwrap().as_str().to_owned();
+#+end_src
+
+Розберемо в циклі всі ідентифікатори і додамо в вектор засіву.
+
+#+begin_src rust :noweb-ref day5_1:Прочитати-засів
+  lazy_static::lazy_static! {
+      static ref RE_SEED: regex::Regex = regex::Regex::new(r"^(?P<id>\d+)( )?(?P<rest>.*)$").unwrap();
+  }
+  while !line.is_empty() {
+      let cps = RE_SEED.captures(&line).unwrap();
+      let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
+      seeds.push(id);
+      line = cps.name("rest").unwrap().as_str().to_owned();
+  }
+#+end_src
+
+Пропустимо один пустий рядок.
+
+#+begin_src rust :noweb-ref day5_1:Прочитати-засів
+  lines.next();
+#+end_src
+
+** Читання мап
+
+Читаємо мапи в циклі. Для простоти зберігаємо усі мапи в векторі.
+
+#+begin_src rust :noweb yes :noweb-ref day5:Прочитати-мапи
+  let mut maps = Vec::<Map>::new();
+  while lines.peek().is_some() {
+      let map = Map::read(&mut lines);
+      maps.push(map);
+  }
+#+end_src
+
+** Мапування засівів
+
+#+begin_src rust :noweb yes :noweb-ref day5_1:Дії
+  let mut loc = None;
+  for seed in seeds {
+      let mut value = seed;
+      for map in &maps {
+          value = map.map(value);
+      }
+      loc = match loc {
+          None => Some(value),
+          Some(loc) => Some(loc.min(value))
+      };
+  }
+  let result = loc.unwrap();
+#+end_src
+
+* Діапазон (~Range~)
+
+Структура ~Range~ описує діапазон мапи, як описано в завданні.
+
+#+begin_src rust :noweb yes :noweb-ref day5:Визначення
+  #[derive(PartialEq, Debug)]
+  struct Range {
+      dest: usize,
+      source: usize,
+      length: usize
+  }
+
+  impl Range {
+      <<day5:Range:Визначення>>
+  }
+#+end_src
+
+** Читання з рядка
+
+#+begin_src rust :noweb yes :noweb-ref day5:Декларації
+  use std::str::FromStr;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day5:Визначення
+  impl FromStr for Range {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          lazy_static::lazy_static! {
+              static ref RE_RANGE: regex::Regex = regex::Regex::new(r"^(?P<dest>\d+) (?P<source>\d+) (?P<length>\d+)$").unwrap();
+          }
+          let cps = RE_RANGE.captures(s).unwrap();
+          let dest = cps.name("dest").unwrap().as_str().parse::<usize>().unwrap();
+          let source = cps.name("source").unwrap().as_str().parse::<usize>().unwrap();
+          let length = cps.name("length").unwrap().as_str().parse::<usize>().unwrap();
+          Ok(Self { dest: dest, source: source, length: length })
+      }
+  }
+#+end_src
+
+*** COMMENT Тестування
+
+#+begin_src rust :noweb-ref day5:Визначення
+  #[test]
+  fn read_range() {
+      assert_eq!("50 98 2".parse::<Range>().unwrap(), Range { dest: 50, source: 98, length: 2 });
+      assert_eq!("52 50 48".parse::<Range>().unwrap(), Range { dest: 52, source: 50, length: 48 });
+  }
+#+end_src
+
+** Мапування
+
+#+begin_src rust :noweb-ref day5:Range:Визначення
+  fn map(&self, s: usize) -> Option<usize> {
+      if self.source <= s && s < self.source + self.length {
+          Some((s - self.source) + self.dest)
+      } else {
+          None
+      }
+  }
+#+end_src
+
+*** COMMENT Тестування
+
+#+begin_src rust :noweb-ref day5:Визначення
+  #[test]
+  fn test_map() {
+      let r1 = "50 98 2".parse::<Range>().unwrap();
+      let r2 = "52 50 48".parse::<Range>().unwrap();
+
+      assert_eq!(r1.map(79), None);
+      assert_eq!(r2.map(79), Some(81));
+      assert_eq!(r1.map(14), None);
+      assert_eq!(r2.map(14), None);
+  }
+#+end_src
+
+* Мапа (~Map~)
+
+Мапа є вектором діапазонів.
+
+#+begin_src rust :noweb yes :noweb-ref day5:Визначення
+  #[derive(Default, PartialEq, Debug)]
+  struct Map(Vec<Range>);
+
+  impl Map {
+      <<day5:Map:Визначення>>
+  }
+#+end_src
+
+** Розпаковка
+
+#+begin_src rust :noweb-ref day5:Декларації
+  use std::ops::{Deref, DerefMut};
+#+end_src
+
+#+begin_src rust :noweb-ref day5:Визначення
+  impl Deref for Map {
+      type Target = Vec<Range>;
+
+      fn deref(&self) -> &Self::Target {
+          &self.0
+      }
+  }
+
+  impl DerefMut for Map {
+      fn deref_mut(&mut self) -> &mut Self::Target {
+          &mut self.0
+      }
+  }
+#+end_src
+
+** Читання
+
+Метод ~read~ дозволяє прочитати мапу з ітератору рядків.
+
+#+begin_src rust :noweb-ref day5:Map:Визначення
+  fn read<I: Iterator<Item = String>>(lines: &mut std::iter::Peekable<I>) -> Self {
+      let mut result = Self::default();
+      lines.next();
+      while lines.peek().is_some() && lines.peek().unwrap() != "" {
+          result.push(lines.next().unwrap().parse::<Range>().unwrap());
+      }
+      if lines.peek().is_some() { lines.next(); }
+      result
+  }
+#+end_src
+
+** Мапування
+
+#+begin_src rust :noweb-ref day5:Map:Визначення
+  fn map(&self, s: usize) -> usize {
+      for range in self.iter() {
+          if let Some(d) = range.map(s) {
+              return d;
+          }
+      }
+      s
+  }
+#+end_src
+
+*** COMMENT Тестування
+
+#+begin_src rust :noweb-ref day5:Визначення
+  #[test]
+  fn test_map() {
+      let file = fs::File::open("day5_debug.txt").unwrap();
+      let mut lines = io::BufReader::new(file)
+          .lines()
+          .map(|l| l.unwrap())
+          .peekable();
+      lines.next();
+      lines.next();
+      let map = Map::read(&mut lines);
+
+      assert_eq!(map.map(79), 81);
+      assert_eq!(map.map(14), 14);
+      assert_eq!(map.map(55), 57);
+      assert_eq!(map.map(13), 13);
+  }
+#+end_src
+
+* COMMENT Тестування розбору числа
+
+Розберемо число з пробілами.
+
+#+begin_src rust :noweb-ref day5:Визначення
+  #[test]
+  #[should_panic]
+  fn number_with_space() {
+      assert_eq!(" 5".parse::<usize>().unwrap(), 5);
+  }
+#+end_src
+
+* COMMENT Тестування розділу
+
+#+begin_src rust :noweb-ref day5:Визначення
+  #[test]
+  fn test_split() {
+      assert_eq!("5  4    3 2".split_ascii_whitespace().collect::<Vec<_>>(), vec!["5", "4", "3", "2"]);
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       3b215944-3c31-4bf5-8f80-dba17f1f13e2
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day5_2.rs
+  <<day5:Декларації>>
+
+  <<day5:Визначення>>
+    
+  fn main() {
+      <<day5:Прочитати-рядки>>
+      <<day5_2:Прочитати-засів>>
+      <<day5:Прочитати-мапи>>
+      <<day5_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання засіву
+
+Прочитаємо вектор засіву ~seeds~. Для цього візьмемо перший рядок.
+
+#+begin_src rust :noweb-ref day5_2:Прочитати-засів
+  let mut seeds = Vec::<(usize, usize)>::new();
+  let line = lines.next().unwrap().to_owned();
+#+end_src
+
+Розберемо рядок і виберемо тільки перелік ідентифікаторів.
+
+#+begin_src rust :noweb-ref day5_2:Прочитати-засів
+  lazy_static::lazy_static! {
+      static ref RE_SEEDS: regex::Regex = regex::Regex::new(r"^seeds: (?P<rest>[\d ]+)$").unwrap();
+  }
+  let cps = RE_SEEDS.captures(&line).unwrap();
+  let mut line = cps.name("rest").unwrap().as_str().to_owned();
+#+end_src
+
+Розберемо в циклі всі ідентифікатори і додамо в вектор засіву.
+
+#+begin_src rust :noweb-ref day5_2:Прочитати-засів
+  lazy_static::lazy_static! {
+      static ref RE_SEED: regex::Regex = regex::Regex::new(r"^(?P<id>\d+)( )?(?P<length>\d+)( )?(?P<rest>.*)$").unwrap();
+  }
+  while !line.is_empty() {
+      let cps = RE_SEED.captures(&line).unwrap();
+      let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
+      let length = cps.name("length").unwrap().as_str().parse::<usize>().unwrap();
+      seeds.push((id, length));
+      line = cps.name("rest").unwrap().as_str().to_owned();
+  }
+#+end_src
+
+Пропустимо один пустий рядок.
+
+#+begin_src rust :noweb-ref day5_2:Прочитати-засів
+  lines.next();
+#+end_src
+
+** Мапування засівів
+
+#+begin_src rust :noweb yes :noweb-ref day5_2:Дії
+  let mut loc = None;
+  println!("{:?}", seeds);
+  for seed in seeds {
+      println!("{:?} {}", seed, seed.0+seed.1);
+      for seed in (seed.0)..(seed.0+seed.1) {
+          if seed % 10000000 == 0 {
+              println!("{}", seed);
+          }
+          let mut value = seed;
+          for map in &maps {
+              value = map.map(value);
+          }
+          loc = match loc {
+              None => Some(value),
+              Some(loc) => Some(loc.min(value))
+          };
+      }
+  }
+  let result = loc.unwrap();
+#+end_src
+
