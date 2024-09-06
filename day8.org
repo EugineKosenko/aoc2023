@@ -1,0 +1,202 @@
+#+title: Adventure of Code, 2023, день 8
+
+* Частина 1
+:PROPERTIES:
+:ID:       dcfb2b3b-518b-4d34-b30c-224046aaf009
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day8_1.rs
+  <<day8:Декларації>>
+
+  <<day8:Визначення>>
+  <<day8_1:Визначення>>
+    
+  fn main() {
+      <<day8:Прочитати-дані>>
+      let mut result = 0;
+      <<day8_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Файл даних суттєво неоднорідний, тому будемо обробляти рядки за допомогою ітератора.
+
+#+begin_src rust :noweb-ref day8:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day8:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let mut lines = io::BufReader::new(file)
+      .lines()
+      .map(|l| l.unwrap());
+#+end_src
+
+** Читання програми
+
+#+begin_src rust :noweb-ref day8:Прочитати-дані
+  let prog = lines.next().unwrap();
+  lines.next();
+#+end_src
+
+** Читання переходів
+
+#+begin_src rust :noweb-ref day8:Декларації
+  use std::collections::HashMap;
+#+end_src
+
+#+begin_src rust :noweb-ref day8:Прочитати-дані
+  let mut links = HashMap::<String, (String, String)>::new();
+  for line in lines {
+      lazy_static::lazy_static! {
+          static ref RE_LINK: regex::Regex = regex::Regex::new(r"^(?P<from>[A-Z0-9]{3}) = \((?P<left>[A-Z0-9]{3}), (?P<right>[A-Z0-9]{3})\)$").unwrap();
+      }
+      let cps = RE_LINK.captures(&line).unwrap();
+      let from = cps.name("from").unwrap().as_str().to_owned();
+      let left = cps.name("left").unwrap().as_str().to_owned();
+      let right = cps.name("right").unwrap().as_str().to_owned();
+      links.insert(from, (left, right));
+  }
+#+end_src
+
+** Обробка програми
+
+Встановимо поточне положення.
+
+#+begin_src rust :noweb-ref day8_1:Дії
+  let mut node = "AAA".to_string();
+#+end_src
+
+Встановимо поточний індекс програми.
+
+#+begin_src rust :noweb-ref day8_1:Дії
+  let mut idx = 0;
+#+end_src
+
+Виконуємо програму, поки поточна позиція не стане кінцевою.
+
+#+begin_src rust :noweb yes :noweb-ref day8_1:Дії
+  while node.as_str() != "ZZZ" {
+      result += 1;
+      <<day8_1:Зробити-крок>>
+  }
+#+end_src
+
+Для поточної позиції обираємо пару цілей.
+
+#+begin_src rust :noweb-ref day8_1:Зробити-крок
+  let (left, right) = links.get(&node).unwrap();
+#+end_src
+
+В залежності від поточного кроку програми оберемо лівий або правий напрямок.
+
+#+begin_src rust :noweb-ref day8_1:Зробити-крок
+  node = match &prog[idx..idx+1] {
+      "L" => left.to_owned(),
+      "R" => right.to_owned(),
+      c => panic!("Invalid command {}", c)
+  };
+#+end_src
+
+Просунемо індекс програми. Якщо програма закінчилася, почнемо спочатку.
+
+#+begin_src rust :noweb-ref day8_1:Зробити-крок
+  idx += 1;
+  if idx == prog.len() { idx = 0; }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       f6f4c3f9-fdb9-49dd-85d7-e59bde02eca5
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day8_2.rs
+  <<day8:Декларації>>
+
+  <<day8:Визначення>>
+  <<day8_2:Визначення>>
+    
+  fn main() {
+      <<day8:Прочитати-дані>>
+      let mut result: usize = 1;
+      <<day8_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Обробка програми
+
+Переберемо усі початкові вузли, які закінчуються на ~A~. Для кожного вузла виконаємо обробку і отримаємо
+довжину циклу.
+
+#+begin_src rust :noweb yes :noweb-ref day8_2:Дії
+  let nodes = links.keys()
+      .filter(|n| &n[n.len()-1..n.len()] == "A");
+  for node in nodes {
+      let mut node = node;
+      let mut cycle = 0;
+      <<day8_2:Обробити-цикл>>
+      result = lcm(result, cycle);
+  }
+#+end_src
+
+Встановимо поточний індекс програми.
+
+#+begin_src rust :noweb-ref day8_2:Обробити-цикл
+  let mut idx = 0;
+#+end_src
+
+Виконуємо програму, поки поточна позиція не стане кінцевою.
+
+#+begin_src rust :noweb yes :noweb-ref day8_2:Обробити-цикл
+  while &node[node.len()-1..node.len()] != "Z" {
+      cycle += 1;
+      <<day8_2:Зробити-крок>>
+  }
+#+end_src
+
+Для поточної позиції обираємо пару цілей.
+
+#+begin_src rust :noweb-ref day8_2:Зробити-крок
+  let (left, right) = links.get(node.as_str()).unwrap();
+#+end_src
+
+В залежності від поточного кроку програми оберемо лівий або правий напрямок.
+
+#+begin_src rust :noweb-ref day8_2:Зробити-крок
+  node = match &prog[idx..idx+1] {
+      "L" => left,
+      "R" => right,
+      c => panic!("Invalid command {}", c)
+  };
+#+end_src
+
+Просунемо індекс програми. Якщо програма закінчилася, почнемо спочатку.
+
+#+begin_src rust :noweb-ref day8_2:Зробити-крок
+  idx += 1;
+  if idx == prog.len() { idx = 0; }
+#+end_src
+
+* Визначення кінцевої позиції
+
+В кінцевій позиції усі елементи вектора закінчуються на ~Z~.
+* Обчислення =НСД= та =НСК=
+
+#+begin_src rust :noweb-ref day8_2:Визначення
+  fn gcd(a: usize, b: usize) -> usize{
+      if b == 0 {
+          a
+      } else {
+          gcd(b, a % b)
+      }
+  }
+
+  fn lcm(a: usize, b: usize) -> usize {
+      (a * b) / gcd(a, b)
+  }
+#+end_src
+
