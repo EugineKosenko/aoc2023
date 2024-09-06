@@ -29,3 +29,12 @@
 #+begin_src rust :noweb-ref aoc:Cargo:Залежності
   grid = "*"
 #+end_src
+
+* =rug=
+
+Used in =day6= for high-precision computations.
+
+#+begin_src rust :noweb-ref aoc:Cargo:Залежності
+  rug = { version = "*", features = ["float"] }
+#+end_src
+

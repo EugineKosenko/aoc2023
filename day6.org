@@ -1,0 +1,169 @@
+#+title: Adventure of Code, 2023, день 6
+
+Задача зводиться до рішення квадратної нерівності ~x*(t-x)>d~, яка в стандартному вигляді приводиться до
+~x^2-t*x+d<0~.
+
+Отримуємо
+
+- ~x^2-7*x+9<0~: ~1.69722<x<5.30278~ => ~2<=x<=5~
+- ~x^2-15*x+40<0~: ~3.46887<x<11.5311~ => ~4<=x<=11~
+
+* Частина 1
+:PROPERTIES:
+:ID:       eebaef0e-caeb-4678-a5c7-fa8816fa01ee
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day6_1.rs
+  <<day6:Декларації>>
+
+  <<day6:Визначення>>
+    
+  fn main() {
+      <<day6:Прочитати-дані>>
+      <<day6_1:Прочитати-час>>
+      <<day6_1:Прочитати-дистанції>>
+      let mut result = 1;
+      <<day6_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Прочитаємо рядки.
+
+Файл даних суттєво неоднорідний, тому будемо обробляти рядки за допомогою ітератора.
+
+#+begin_src rust :noweb-ref day6:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day6:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let mut lines = io::BufReader::new(file)
+      .lines()
+      .map(|l| l.unwrap());
+#+end_src
+
+Прочитаємо рядок значень часу, однак залишимо дані у якості ітератора. При цьому:
+
+- пропустимо перший елемент;
+- перетворимо елементи на числа.
+
+#+begin_src rust :noweb-ref day6_1:Прочитати-час
+  let line = lines.next().unwrap();
+  let times = line.split_whitespace()
+      .skip(1)
+      .map(|t| t.parse::<usize>().unwrap());
+#+end_src
+
+Зробимо те ж саме для відстаней.
+
+#+begin_src rust :noweb-ref day6_1:Прочитати-дистанції
+  let line = lines.next().unwrap();
+  let dists = line.split_whitespace()
+      .skip(1)
+      .map(|d| d.parse::<usize>().unwrap());
+#+end_src
+
+** Обробка перегонів
+
+Утворимо ітератор по парі значень час-відстань.
+
+#+begin_src rust :noweb yes :noweb-ref day6_1:Дії
+  for (time, dist) in times.zip(dists) {
+      <<day6_1:Обробити-перегін>>
+  }
+#+end_src
+
+Обчислимо корені дискримінанта.
+
+#+begin_src rust :noweb-ref day6_1:Обробити-перегін
+  let b = -(time as f32);
+  let c = dist as f32;
+  let d = (b * b - 4.0 * c).sqrt();
+  let x1 = (-b - d) / 2.0;
+  let x2 = (-b + d) / 2.0;
+#+end_src
+
+Важливо, щоб корені суворо вкладалися в інтервали. Тому, якщо корень не є цілим, треба його округлити в
+потрібну сторону, інакше додати або відняти одиницю
+
+#+begin_src rust :noweb-ref day6_1:Обробити-перегін
+  let x1 = (if x1 == x1.round() { x1.round() + 1.0} else { x1.ceil() }) as usize;
+  let x2 = (if x2 == x2.round() { x2.round() - 1.0} else { x2.floor() }) as usize;
+#+end_src
+
+Домножимо результат на кількість цілих рішень.
+
+#+begin_src rust :noweb-ref day6_1:Обробити-перегін
+  result *= x2 - x1 + 1;
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       d14b5b46-5d6b-400a-88ef-9beeb2317bb7
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day6_2.rs
+  <<day6:Декларації>>
+
+  <<day6:Визначення>>
+    
+  fn main() {
+      <<day6:Прочитати-дані>>
+      <<day6_2:Прочитати-час>>
+      <<day6_2:Прочитати-дистанції>>
+      <<day6_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання часу і дистанцій
+
+Прочитаємо рядок значень часу і зберемо їх в рядок.
+
+#+begin_src rust :noweb-ref day6_2:Прочитати-час
+  let line = lines.next().unwrap();
+  let time = line.split_whitespace()
+      .skip(1)
+      .collect::<String>()
+      .parse::<usize>().unwrap();
+#+end_src
+
+Зробимо те ж саме для відстаней.
+
+#+begin_src rust :noweb-ref day6_2:Прочитати-дистанції
+  let line = lines.next().unwrap();
+  let dist = line.split_whitespace()
+      .skip(1)
+      .collect::<String>()
+      .parse::<usize>().unwrap();
+#+end_src
+
+** Обробка перегонів
+
+Обчислимо корені дискримінанта.
+
+#+begin_src rust :noweb-ref day6_2:Дії
+  let b = rug::Float::with_val(64, -(time as f32));
+  let c = rug::Float::with_val(64, dist);
+  let d = (b.clone() * b.clone() - rug::Float::with_val(64, 4.0) * c.clone()).sqrt();
+  let x1 = (-b.clone() - d.clone()) / rug::Float::with_val(64, 2.0);
+  let x2 = (-b.clone() + d.clone()).to_f64() / rug::Float::with_val(64, 2.0);
+#+end_src
+
+Важливо, щоб корені суворо вкладалися в інтервали, тому корені треба округлити в потрібну сторону.
+
+#+begin_src rust :noweb-ref day6_2:Дії
+  let x1 = x1.to_u32_saturating_round(rug::float::Round::Up).unwrap();
+  let x2 = x2.to_u32_saturating_round(rug::float::Round::Down).unwrap();
+#+end_src
+
+Результатом є кількість цілих рішень.
+
+#+begin_src rust :noweb-ref day6_2:Дії
+  let result = x2 - x1 + 1;
+#+end_src
+
