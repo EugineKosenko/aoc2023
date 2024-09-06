@@ -1,0 +1,454 @@
+#+title: Adventure of Code, 2023, день 7
+
+* Частина 1
+:PROPERTIES:
+:ID:       36987f86-3576-4388-8a6e-3177f10a4a6c
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day7_1.rs
+  <<day7:Декларації>>
+
+  <<day7:Визначення>>
+  <<day7_1:Визначення>>
+    
+  fn main() {
+      <<day7:Прочитати-дані>>
+      let mut result = 0;
+      <<day7_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Прочитаємо рядки.
+
+Файл даних суттєво неоднорідний, тому будемо обробляти рядки за допомогою ітератора.
+
+#+begin_src rust :noweb-ref day7:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day7:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file)
+      .lines()
+      .map(|l| l.unwrap());
+#+end_src
+
+** Читання ставок
+
+Кожний рядок представляє /ставку/, яка по суті є парою з руки та значення ставки. Прочитаємо ставки і
+соберемо їх у вектор.
+
+#+begin_src rust :noweb-ref day7:Прочитати-дані
+  let mut bids = lines
+      .map(|line| {
+          let mut items = line.split_whitespace();
+          let hand = items.next().unwrap().parse::<Hand>().unwrap();
+          let bid = items.next().unwrap().parse::<usize>().unwrap();
+          (hand, bid)
+      })
+      .collect::<Vec<_>>();
+#+end_src
+
+** Обробка ставок
+
+Відсортуємо ставки за зростанням рук.
+
+#+begin_src rust :noweb-ref day7_1:Дії
+  bids.sort_by(|b1, b2| b1.0.cmp(&b2.0));
+#+end_src
+
+Переберемо ставки за індексом, щоб отримати ранг, і обчислимо результат.
+
+#+begin_src rust :noweb-ref day7_1:Дії
+  for i in 0..bids.len() {
+      result += (i + 1) * bids[i].1;
+  }
+#+end_src
+
+* Картка
+
+Перелічимо картки.
+
+#+begin_src rust :noweb-ref day7_1:Визначення
+  #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+  enum Card {
+      D2, D3, D4, D5, D6, D7, D8, D9, T, J, Q, K, A
+  }
+#+end_src
+
+Для другої частини джокер менше, ніж будь-яка інша картка.
+
+#+begin_src rust :noweb-ref day7_2:Визначення
+  #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+  enum Card {
+      J, D2, D3, D4, D5, D6, D7, D8, D9, T, Q, K, A
+  }
+#+end_src
+
+Реалізуємо відображення картки.
+
+#+begin_src rust :noweb-ref day7:Декларації
+  use std::fmt;
+#+end_src
+
+#+begin_src rust :noweb-ref day7:Визначення
+  impl fmt::Display for Card {
+      fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+          write!(
+              f, "{}", match self {
+                  Card::D2 => "2",
+                  Card::D3 => "3",
+                  Card::D4 => "4",
+                  Card::D5 => "5",
+                  Card::D6 => "6",
+                  Card::D7 => "7",
+                  Card::D8 => "8",
+                  Card::D9 => "9",
+                  Card::T => "T",
+                  Card::J => "J",
+                  Card::Q => "Q",
+                  Card::K => "K",
+                  Card::A => "A"
+              }
+          )
+      }
+  }
+#+end_src
+
+Реалізуємо читання картки.
+
+#+begin_src rust :noweb-ref day7:Декларації
+  use std::str;
+#+end_src
+
+#+begin_src rust :noweb-ref day7:Визначення
+  impl str::FromStr for Card {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          match s {
+              "2" => Ok(Card::D2),
+              "3" => Ok(Card::D3),
+              "4" => Ok(Card::D4),
+              "5" => Ok(Card::D5),
+              "6" => Ok(Card::D6),
+              "7" => Ok(Card::D7),
+              "8" => Ok(Card::D8),
+              "9" => Ok(Card::D9),
+              "T" => Ok(Card::T),
+              "J" => Ok(Card::J),
+              "Q" => Ok(Card::Q),
+              "K" => Ok(Card::K),
+              "A" => Ok(Card::A),
+              s => Err(format!("Invalid card {}", s))
+          }
+      }
+  }
+#+end_src
+
+Функція ~cards~ перетворює строку на вектор карток.
+
+#+begin_src rust :noweb-ref day7:Визначення
+  fn cards(s: &str) -> Vec<Card> {
+      s.chars()
+          .map(|c| c.to_string().parse::<Card>().unwrap())
+          .collect::<Vec<_>>()
+  }
+#+end_src
+
+* Тип руки
+
+#+begin_src rust :noweb-ref day7:Визначення
+  #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+  enum Kind {
+      High, OnePair, TwoPair, Three, Full, Four, Five
+  }
+#+end_src
+
+** Створення для першої частини
+
+Функція ~kind~ обчислює тип по вектору карток.
+
+#+begin_src rust :noweb yes :noweb-ref day7_1:Визначення
+  fn kind(cards: &Vec<Card>) -> Kind {
+    <<day7_1:kind:Дії>>
+  }
+#+end_src
+
+Візьмемо множину унікальних карток.
+
+#+begin_src rust :noweb-ref day7:Декларації
+  use std::collections::BTreeSet;
+#+end_src
+
+#+begin_src rust :noweb-ref day7_1:kind:Дії
+  let set = cards.iter().collect::<BTreeSet<&Card>>();
+#+end_src
+
+Для кожної картки з множини знайдемо кількість її входжень до вектора карток.
+
+#+begin_src rust :noweb-ref day7_1:kind:Дії
+  let mut counts = set.iter()
+      .map(|c| {
+          cards.iter()
+              .filter(|c1| c1 == c)
+              .count()
+      })
+      .collect::<Vec<_>>();
+  counts.sort();
+  counts.reverse();
+#+end_src
+
+Оскільки в шаблоні не можна використовувати вектори, перетворимо їх на рядок.
+
+#+begin_src rust :noweb-ref day7_1:kind:Дії
+  let counts = counts.iter()
+      .map(|c| { format!("{}", c) })
+      .collect::<String>();
+#+end_src
+
+Отримаємо тип за шаблоном кількостей.
+
+#+begin_src rust :noweb-ref day7_1:kind:Дії
+  match counts.as_str() {
+      "5" => Kind::Five,
+      "41" => Kind::Four,
+      "32" => Kind::Full,
+      "311" => Kind::Three,
+      "221" => Kind::TwoPair,
+      "2111" => Kind::OnePair,
+      "11111" => Kind::High,
+      v => { panic!("Invalid counts {:?}", v) }
+  }
+#+end_src
+
+*** Тестування
+
+#+begin_src rust :noweb-ref day7_1:Визначення
+  #[test]
+  fn test_kind_1() {
+      assert_eq!(kind(&cards("32T3K")), Kind::OnePair);
+      assert_eq!(kind(&cards("T55J5")), Kind::Three);
+      assert_eq!(kind(&cards("KK677")), Kind::TwoPair);
+      assert_eq!(kind(&cards("KTJJT")), Kind::TwoPair);
+      assert_eq!(kind(&cards("QQQJA")), Kind::Three);
+  }
+#+end_src
+
+** Створення для другої частини
+
+Функція ~kind~ обчислює тип по вектору карток.
+
+#+begin_src rust :noweb yes :noweb-ref day7_2:Визначення
+  fn kind(cards: &Vec<Card>) -> Kind {
+    <<day7_2:kind:Дії>>
+  }
+#+end_src
+
+Візьмемо множину унікальних карток, відмінних від джокера.
+
+#+begin_src rust :noweb-ref day7_2:kind:Дії
+  let set = cards.iter()
+      .filter(|c| **c != Card::J)
+      .collect::<BTreeSet<&Card>>();
+#+end_src
+
+Окремо підрахуємо кількість джокерів.
+
+#+begin_src rust :noweb-ref day7_2:kind:Дії
+  let jcount = cards.iter()
+      .filter(|c| **c == Card::J)
+      .count();
+#+end_src
+
+Для кожної картки з множини знайдемо кількість її входжень до вектора карток. До першої за кількістю
+картки додаємо кількість джокерів.
+
+Якщо множина пуста, значить, всі п'ять карток є джокерами.
+
+#+begin_src rust :noweb-ref day7_2:kind:Дії
+  let counts = if set.is_empty() {
+      vec![5]
+  } else {
+      let mut counts = set.iter()
+          .map(|c| {
+              cards.iter()
+                  .filter(|c1| c1 == c)
+                  .count()
+          })
+          .collect::<Vec<_>>();
+      counts.sort();
+      counts.reverse();
+      counts[0] += jcount;
+      counts
+  };
+#+end_src
+
+Оскільки в шаблоні не можна використовувати вектори, перетворимо їх на рядок.
+
+#+begin_src rust :noweb-ref day7_2:kind:Дії
+  let counts = counts.iter()
+      .map(|c| { format!("{}", c) })
+      .collect::<String>();
+#+end_src
+
+Отримаємо тип за шаблоном кількостей.
+
+#+begin_src rust :noweb-ref day7_2:kind:Дії
+  match counts.as_str() {
+      "5" => Kind::Five,
+      "41" => Kind::Four,
+      "32" => Kind::Full,
+      "311" => Kind::Three,
+      "221" => Kind::TwoPair,
+      "2111" => Kind::OnePair,
+      "11111" => Kind::High,
+      v => { panic!("Invalid counts {:?}", v) }
+  }
+#+end_src
+
+#+begin_src rust :noweb-ref day7_2:Визначення
+  #[test]
+  fn test_kind_2() {
+      assert_eq!(kind(&cards("32T3K")), Kind::OnePair);
+      assert_eq!(kind(&cards("T55J5")), Kind::Four);
+      assert_eq!(kind(&cards("KK677")), Kind::TwoPair);
+      assert_eq!(kind(&cards("KTJJT")), Kind::Four);
+      assert_eq!(kind(&cards("QQQJA")), Kind::Four);
+      assert_eq!(kind(&cards("J6488")), Kind::Three);
+  }
+#+end_src
+
+* Рука
+
+Рука зберігає тип и вектор карток.
+
+#+begin_src rust :noweb yes :noweb-ref day7:Визначення
+  #[derive(PartialEq, Eq, PartialOrd, Debug)]
+  struct Hand {
+      kind: Kind,
+      cards: Vec<Card>
+  }
+
+  impl Hand {
+      <<day7:Hand:Визначення>>
+  }
+#+end_src
+
+Реалізуємо читання руки.
+
+#+begin_src rust :noweb yes :noweb-ref day7:Визначення
+  impl str::FromStr for Hand {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          let cards = cards(s);
+          let kind = kind(&cards);
+          Ok(Self {
+              kind: kind,
+              cards: cards
+          })
+      }
+  }
+#+end_src
+
+Реалізуємо порівняння рук.
+
+#+begin_src rust :noweb-ref day7:Декларації
+  use std::cmp;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day7:Визначення
+  impl cmp::Ord for Hand {
+      fn cmp(&self, other: &Self) -> cmp::Ordering {
+          <<day7:Hand:cmp:Дії>>
+          result
+      }
+  }
+#+end_src
+
+Порівняємо типи рук.
+
+#+begin_src rust :noweb yes :noweb-ref day7:Hand:cmp:Дії
+  let result = match self.kind.cmp(&other.kind) {
+      cmp::Ordering::Equal => {
+          <<day7:Hand:cmp:Порівняти-набори>>
+      },
+      ord => ord
+  };
+#+end_src
+
+Якщо дві руки мають однаковий тип, то порівнюються лексікографічно набори карток.
+
+#+begin_src rust :noweb yes :noweb-ref day7:Hand:cmp:Порівняти-набори
+  self.cards.cmp(&other.cards)
+#+end_src
+
+** Тестування читання
+
+#+begin_src rust :noweb-ref day7:Визначення
+  #[test]
+  fn test_hand() {
+      assert_eq!("32T3K".parse::<Hand>().unwrap(), Hand { kind: Kind::OnePair, cards: cards("32T3K") });
+  }
+#+end_src
+
+** Тестування порівняння
+
+#+begin_src rust :noweb-ref day7_1:Визначення
+  #[test]
+  fn test_hand_cmp() {
+      let h1 = "KK677".parse::<Hand>().unwrap();
+      let h2 = "KTJJT".parse::<Hand>().unwrap();
+      assert!(h2 < h1);
+  }
+#+end_src
+
+#+begin_src rust :noweb-ref day7_2:Визначення
+  #[test]
+  fn test_hand_cmp() {
+      let h1 = "KK677".parse::<Hand>().unwrap();
+      let h2 = "KTJJT".parse::<Hand>().unwrap();
+      assert!(h2 > h1);
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       3836291b-9f65-4172-86c9-4202c2dadcbf
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day7_2.rs
+  <<day7:Декларації>>
+
+  <<day7:Визначення>>
+  <<day7_2:Визначення>>
+    
+  fn main() {
+      <<day7:Прочитати-дані>>
+      let mut result = 0;
+      <<day7_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Обробка ставок
+
+Відсортуємо ставки за зростанням рук.
+
+#+begin_src rust :noweb-ref day7_2:Дії
+  bids.sort_by(|b1, b2| b1.0.cmp(&b2.0));
+#+end_src
+
+Переберемо ставки за індексом, щоб отримати ранг, і обчислимо результат.
+
+#+begin_src rust :noweb-ref day7_2:Дії
+  for i in 0..bids.len() {
+      result += (i + 1) * bids[i].1;
+  }
+#+end_src
+
