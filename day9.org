@@ -1,0 +1,153 @@
+#+title: Adventure of Code, 2023, день 9
+
+* Частина 1
+:PROPERTIES:
+:ID:       23695fe8-e2ca-4299-8c99-8e6c65912c91
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day9_1.rs
+  <<day9:Декларації>>
+
+  <<day9:Визначення>>
+  <<day9_1:Визначення>>
+    
+  fn main() {
+      <<day9:Прочитати-дані>>
+      let mut result = 0;
+      <<day9_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+Файл даних суттєво неоднорідний, тому будемо обробляти рядки за допомогою ітератора.
+
+#+begin_src rust :noweb-ref day9:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day9:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let seqs = io::BufReader::new(file)
+      .lines()
+      .map(|l| {
+          l.unwrap()
+              .split_whitespace()
+              .map(|v| v.parse::<isize>().unwrap())
+              .collect::<Vec<_>>()
+      });
+#+end_src
+
+** Обробка послідовностей
+
+#+begin_src rust :noweb-ref day9_1:Дії
+  for seq in seqs {
+      result += extend(&seq);
+  }
+#+end_src
+
+* Редукція
+
+Функція ~reduce~ будує для заданої послідовності похідну послідовність різниць.
+
+#+begin_src rust :noweb-ref day9:Визначення
+  fn reduce(src: &Vec<isize>) -> Vec<isize> {
+      let mut result = Vec::new();
+      for i in 0..src.len()-1 {
+          result.push(src[i+1]-src[i]);
+      }
+      result
+  }
+#+end_src
+
+** Тестування
+
+#+begin_src rust :noweb-ref day9:Визначення
+  #[test]
+  fn test_reduce() {
+      assert_eq!(reduce(&vec![10, 13, 16, 21, 30, 45]), vec![3, 3, 5, 9, 15]);
+      assert_eq!(reduce(&vec![3, 3, 5, 9, 15]), vec![0, 2, 4, 6]);
+      assert_eq!(reduce(&vec![0, 2, 4, 6]), vec![2, 2, 2]);
+      assert_eq!(reduce(&vec![2, 2, 2]), vec![0, 0]);
+  }
+#+end_src
+
+* Нарощування
+
+Функція ~extend~ додає до заданої послідовності наступний елемент. Для цього виконується редукція, і
+повертається новий елемент, який дорівнює останньому елементу і нарощування. Для завершення рекурсії,
+якщо послідовність містить тільки нулі, тоді послідовність розширюється нулем.
+
+#+begin_src rust :noweb-ref day9_1:Визначення
+  fn extend(src: &Vec<isize>) -> isize {
+      if src.iter().all(|v| *v == 0) {
+          0
+      } else {
+          src.last().unwrap() + extend(&reduce(&src))
+      }
+  }
+#+end_src
+
+#+begin_src rust :noweb-ref day9_2:Визначення
+  fn extend(src: &Vec<isize>) -> isize {
+      if src.iter().all(|v| *v == 0) {
+          0
+      } else {
+          src.first().unwrap() - extend(&reduce(&src))
+      }
+  }
+#+end_src
+
+** Тестування
+
+#+begin_src rust :noweb-ref day9_1:Визначення
+  #[test]
+  fn test_extend() {
+      assert_eq!(extend(&vec![0, 0]), 0);
+      assert_eq!(extend(&vec![2, 2, 2]), 2);
+      assert_eq!(extend(&vec![0, 2, 4, 6]), 8);
+      assert_eq!(extend(&vec![3, 3, 5, 9, 15]), 23);
+      assert_eq!(extend(&vec![10, 13, 16, 21, 30, 45]), 68);
+  }
+#+end_src
+
+#+begin_src rust :noweb-ref day9_2:Визначення
+  #[test]
+  fn test_extend() {
+      assert_eq!(extend(&vec![0, 0]), 0);
+      assert_eq!(extend(&vec![2, 2, 2]), 2);
+      assert_eq!(extend(&vec![0, 2, 4, 6]), -2);
+      assert_eq!(extend(&vec![3, 3, 5, 9, 15]), 5);
+      assert_eq!(extend(&vec![10, 13, 16, 21, 30, 45]), 5);
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       ade8ca05-cc29-46e0-b6ad-3bda957aaaee
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day9_2.rs
+  <<day9:Декларації>>
+
+  <<day9:Визначення>>
+  <<day9_2:Визначення>>
+    
+  fn main() {
+      <<day9:Прочитати-дані>>
+      let mut result = 0;
+      <<day9_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Обробка послідовностей
+
+#+begin_src rust :noweb-ref day9_2:Дії
+  for seq in seqs {
+      result += extend(&seq);
+  }
+#+end_src
+
