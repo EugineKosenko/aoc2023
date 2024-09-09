@@ -1,0 +1,273 @@
+#+title: Adventure of Code, 2023, день 10
+
+* Частина 1
+:PROPERTIES:
+:ID:       88f131d6-c587-4d4f-ab35-c2b2f85907d4
+:END:
+
+Рішення суттєво базується на тому факті, що будь-який цикл на площині має парну довжину. Отже, для
+знаходження максимальної відстані достатньо обчислити довжину цикла і поділити її на ~2~.
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day10_1.rs
+  <<day10:Декларації>>
+
+  <<day10:Визначення>>
+  <<day10_1:Визначення>>
+    
+  fn main() {
+      <<day10:Прочитати-дані>>
+      let mut result = 1;
+      <<day10_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Читання даних
+
+#+begin_src rust :noweb-ref day10:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day10:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file)
+      .lines().map(|l| l.unwrap());
+#+end_src
+
+Створимо матрицю площини. Елементом матриці є вектор сусідів, які поєднані трубою. Такий вектор або
+взагалі пустий (для пустих клітинок), або має рівно два елементи. Для простоти вважаємо, що елементи на
+краю матриці можуть мати сусідів за межами матриці.
+
+#+begin_src rust :noweb-ref day10:Прочитати-дані
+  let mut grid = grid::Grid::<Vec<P>>::new(0, 0);
+  let mut symb = grid::Grid::<char>::new(0, 0);
+#+end_src
+
+Перебиратимо рядки з індексом ~i~ і стовпці з індексом ~j~.
+
+Додатково знайдемо точку ~s~, яка позначує початок циклу.
+
+#+begin_src rust :noweb-ref day10:Прочитати-дані
+  let mut s = None;
+  let mut i = 0;
+  for line in lines {
+      let mut j = 0;
+      let mut row = Vec::<Vec<P>>::new();
+      let mut symb_row = Vec::<char>::new();
+      for c in line.chars() {
+          row.push(
+              match c {
+                  '.' | 'S' => vec![],
+                  '|' => vec![P(i-1, j), P(i+1, j)],
+                  '-' => vec![P(i, j-1), P(i, j+1)],
+                  'L' => vec![P(i-1, j), P(i, j+1)],
+                  'J' => vec![P(i-1, j), P(i, j-1)],
+                  '7' => vec![P(i, j-1), P(i+1, j)],
+                  'F' => vec![P(i, j+1), P(i+1, j)],
+                  c => { panic!("Invalid item '{}'", c); }
+              }
+          );
+          if c == 'S' {
+              s = Some(P(i, j));
+              symb_row.push('7');
+          } else {
+              symb_row.push(c);
+          }
+          j += 1;
+      }
+      grid.push_row(row);
+      symb.push_row(symb_row);
+      i += 1;
+  };
+  let s = s.unwrap();
+#+end_src
+
+** Відновлення контуру
+
+Символ початку контуру ~S~ "розриває" контур, тому потрібно відновити його спираючись на сусідів. Для
+цього переберемо усіх сусідів початкової точки і оберемо два сусіда, які ведуть до початкової позиції.
+
+#+begin_src rust :noweb-ref day10:Прочитати-дані
+  let neighbours = vec![P(-1, 0), P(0, 1), P(1, 0), P(0, -1)].into_iter()
+      .filter(|d| {
+          let p = s + *d;
+          0 <= p.r() && p.r() < (grid.rows() as isize)
+              && 0 <= p.c() && p.c() < (grid.cols() as isize)
+              && grid.get(p.r(), p.c()).unwrap().contains(&s)
+      })
+      .collect::<Vec<_>>();
+#+end_src
+
+На основі отриманої пари сусідів відновлюємо контур в початковій точці.
+
+#+begin_src rust :noweb-ref day10:Прочитати-дані
+  ,*symb.get_mut(s.r(), s.c()).unwrap() = match (neighbours[0], neighbours[1]) {
+      (P(-1, 0), P(0, 1)) => 'L',
+      (P(-1, 0), P(1, 0)) => '|',
+      (P(-1, 0), P(0, -1)) => 'J',
+      (P(0, 1), P(1, 0)) => 'F',
+      (P(0, 1), P(0, -1)) => '-',
+      (P(1, 0), P(0, -1)) => '7',
+      b => { panic!("Invalid bend {:?}", b); }
+  };
+    
+#+end_src
+
+** Перший крок
+
+Для першого кроку ми маємо знайти хоча б одного сусіда, пов'язаного з точкою початку.
+
+#+begin_src rust :noweb-ref day10_1:Дії
+  let mut p1 = s;
+  let mut p2 = vec![p1+P(-1, 0), p1+P(0, 1), p1+P(1, 0), p1+P(0, -1)].into_iter()
+      .filter(|p| {
+          0 <= p.r() && p.r() < (grid.rows() as isize)
+              && 0 <= p.c() && p.c() < (grid.cols() as isize)
+              && grid.get(p.r(), p.c()).unwrap().iter().any(|p| *p == s)
+      })
+      .next().unwrap();
+#+end_src
+
+** Наступні кроки
+
+Шукаємо в циклі кожну наступну позицію, поки нова позиція не співпадає з початковою.
+
+#+begin_src rust :noweb-ref day10_1:Дії
+  while p2 != s {
+      let p0 = p1;
+      p1 = p2;
+      p2 = *grid.get(p2.r(), p2.c()).unwrap().into_iter()
+          .filter(|p| **p != p0)
+          .next().unwrap();
+      result += 1;
+  }
+  result /= 2;
+#+end_src
+
+* Вектор
+
+#+begin_src rust :noweb yes :noweb-ref day10:Визначення
+  #[derive(Default, PartialEq, Eq, Clone, Copy, Debug)]
+  struct P(isize, isize);
+
+  impl P {
+      <<day10:P:Визначення>>
+  }
+#+end_src
+
+** Спостерігачі координат
+
+#+begin_src rust :noweb yes :noweb-ref day10:P:Визначення
+  fn r(self: &P) -> isize { self.0 }
+  fn c(self: &P) -> isize { self.1 }
+#+end_src
+
+** Арифметика векторів
+
+#+begin_src rust :noweb yes :noweb-ref day10:Декларації
+  use std::ops::Add;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day10:Визначення
+  impl Add for P {
+      type Output = Self;
+    
+      fn add(self, other: Self) -> Self {
+          Self(self.0 + other.0, self.1 + other.1)
+      }
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       5f6fc76a-b2ac-44b2-8743-09d5e6acc4f8
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day10_2.rs
+  <<day10:Декларації>>
+
+  <<day10:Визначення>>
+  <<day10_2:Визначення>>
+    
+  fn main() {
+      <<day10:Прочитати-дані>>
+      let mut result = 0;
+      <<day10_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+** Перший крок
+
+Зберемо усі елементи контуру в окремий вектор.
+
+#+begin_src rust :noweb-ref day10_2:Дії
+  let mut circuit = Vec::<P>::new();
+#+end_src
+
+Для першого кроку ми маємо знайти хоча б одного сусіда, пов'язаного з точкою початку.
+
+#+begin_src rust :noweb-ref day10_2:Дії
+  circuit.push(s);
+  let mut p1 = s;
+  let mut p2 = vec![p1+P(-1, 0), p1+P(0, 1), p1+P(1, 0), p1+P(0, -1)].into_iter()
+      .filter(|p| {
+          0 <= p.r() && p.r() < (grid.rows() as isize)
+              && 0 <= p.c() && p.c() < (grid.cols() as isize)
+              && grid.get(p.r(), p.c()).unwrap().iter().any(|p| *p == s)
+      })
+      .next().unwrap();
+#+end_src
+
+** Наступні кроки
+
+Шукаємо в циклі кожну наступну позицію, поки нова позиція не співпадає з початковою.
+
+#+begin_src rust :noweb-ref day10_2:Дії
+  while p2 != s {
+      circuit.push(p2);
+      let p0 = p1;
+      p1 = p2;
+      p2 = *grid.get(p2.r(), p2.c()).unwrap().into_iter()
+          .filter(|p| **p != p0)
+          .next().unwrap();
+  }
+#+end_src
+
+** Трасування
+
+Для кожної точки підрахуємо кількість перетинів контуру при русі вправо.
+
+#+begin_src rust :noweb-ref day10_2:Дії
+  for ((r, c), _) in symb.indexed_iter() {
+      if !circuit.contains(&P(r as isize, c as isize)) {
+          let mut x = 0;
+          let mut i = c+1;
+          while i < symb.cols() {
+              if circuit.contains(&P(r as isize, i as isize)) {
+                  if *symb.get(r, i).unwrap() == '|' {
+                      x += 1
+                  } else {
+                      let c1 = *symb.get(r, i).unwrap();
+                      i += 1;
+                      while !"F7LJ".contains(*symb.get(r, i).unwrap()) {
+                          i += 1;
+                      }
+                      let c2 = *symb.get(r, i).unwrap();
+                      match (c1, c2) {
+                          ('F', 'J') | ('L', '7') => { x += 1 },
+                          ('F', '7') | ('L', 'J') => { x += 2 },
+                          (c1, c2) => { panic!("Invalid line '{}{}'", c1, c2); }
+                      }
+                  }
+              }
+              i += 1;
+          }
+          if x % 2 == 1 {
+              result += 1;
+          }
+      }
+  }
+#+end_src
+
