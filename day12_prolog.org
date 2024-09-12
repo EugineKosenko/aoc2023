@@ -1,0 +1,368 @@
+#+title: Adventure of Code, 2023, день 12, =Prolog=
+
+#+begin_src prolog :noweb yes :tangle day12_1.pl
+  <<day12_1:Визначення>>
+#+end_src
+
+* Читання даних
+
+Предикат ~read_file_lines~ читає з файла перелік рядків, при цьому він викликає рекурсивний предикат
+~read_lines~.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  read_file_lines(File, Lines) :- 
+      open(File, read, Stream),
+      read_lines(Stream, Lines),
+      close(Stream).
+
+  read_lines(Stream, []) :-
+      at_end_of_stream(Stream), !.
+  read_lines(Stream, [(SpringList, CountsList)|Lines]) :-
+      read_line_to_string(Stream, StringLine),
+      parse_line(StringLine, SpringList, CountsList),
+      read_lines(Stream, Lines).
+#+end_src
+
+Для відлагодження визначимо предикат ~read_file_line~, який читає лише перший рядок файла.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  read_file_line(File, Line) :-
+      read_file_lines(File, Lines),
+      Lines = [Line|_].
+#+end_src
+
+Предикат ~parse_line~ розділяє рядок на перелік струмків (=spring=) і лічильники ушкодження (=count=).
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  parse_line(Line, SpringsList, CountsList) :-
+      split_string(Line, " ", "", List),
+      [SpringsString, CountsString] = List,
+      parse_springs(SpringsString, SpringsList),
+      parse_counts(CountsString, CountsList).
+#+end_src
+
+Предикат ~parse_springs~ перетворює рядок опису струмків на перелік літер, які позначують робочий (~.~),
+ушкоджений (~#~) або невизначений (~?~) струмок.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  parse_springs(Springs, List) :-
+      string_chars(Springs, List).
+#+end_src
+
+Предикат ~parse_counts~ перетворює рядок опису лічильників на перелік чисел. При цьому рядок розділяється
+по комі, після чого кожний підрядок перетворюється на число.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  parse_counts(Counts, CountsList) :-
+      split_string(Counts, ",", "", StringList),
+      parse_nums(StringList, CountsList).
+
+  parse_nums([], []).
+  parse_nums([StringCount|StringTail], [NumCount|NumTail]) :-
+      atom_number(StringCount, NumCount),
+      parse_nums(StringTail, NumTail).
+#+end_src
+
+* COMMENT Розмноження даних
+
+Розмножимо перелік струмків.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  copy_springs(0, _, Springs, Springs).
+  copy_springs(N, Springs, Copy, Extension) :-
+      N1 is N - 1,
+      append(Copy, ['?'], S1),
+      append(S1, Springs, S2),
+      copy_springs(N1, Springs, S2, Extension).
+#+end_src
+
+Розмножимо перелік лічильників.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  copy_counts(0, _, Counts, Counts).
+  copy_counts(N, Counts, Copy, Extension) :-
+      N1 is N - 1,
+      append(Copy, Counts, C1),
+      copy_counts(N1, Counts, C1, Extension).
+#+end_src
+
+* Оптимізація даних
+
+Прямий перебір виявився неефективним навіть з використанням =Rust=, тому спробуємо змінити стратегію.
+
+Помітимо, що послідовність робочих струмків нічим не обмежена і не впливає на результат. Тому ми можемо
+замінити усі такі послідовності одним робочим струмком. Однак, можна піти ще далі, і розділити рядок
+струмків на перелік /шматків/ (=chunk=), в кожному з яких є тільки ушкоджені або невизначені шматки.
+
+Предикат ~chunks~ створює перелік шматків ~Chunks~ з переліку струмків ~Springs~.
+
+Для пустого переліку струмків отримуємо пустий перелік шматків.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunks([], []) :- !.
+#+end_src
+
+Робочі струмки пропускаються.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunks(['.'|Springs], Chunks) :- chunks(Springs, Chunks), !.
+#+end_src
+
+Будь-який інший струмок (ушкоджений чи невизначений) запускає отримання окремого шматка (за допомогою
+предиката ~chunk~), який повертається на початку переліка шматків.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunks(Springs, [Chunk|Chunks]) :-
+      Springs \= [],
+      chunk(Springs, [], Chunk, Rest),
+      chunks(Rest, Chunks).
+#+end_src
+
+Предикат ~chunk~ відокремлює шматок ~Chunk~ з рядку струмків ~Springs~, повертаючи в ~Rest~ залишок рядка
+струмків. Додатково визначається акумулятор ~ChunkIn~, в якому шматок накопичується.
+
+Для пустого переліку струмків повертаємо накопичений шматок і пустий залишок. Відсікаємо пошук, оскільки
+цей предикат детермінований.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunk([], Chunk, Chunk, []) :- !.
+#+end_src
+
+Робочий струмок відокремлює шматок від решти. Для оптимізаціі викидаємо цей робочий струмок, оскільки він
+в подальшому ігнорується.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunk(['.'|Springs], Chunk, Chunk, Springs) :- !.
+#+end_src
+
+Будь-який інший струмок додається до шматка, після чого побудова шматка продовжується.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  chunk([Spring|Springs], ChunkIn, [Spring|Chunk], Rest) :-
+      Spring \= '.',
+      chunk(Springs, ChunkIn, Chunk, Rest).
+#+end_src
+
+* Визанчення шматка
+
+Кожен шматок містить тільки ушкоджені або невизначені струмки. Коли ми маємо лічильник ~Count~, ми можемо
+отримати різні варіанти /визначених/ (=fixed=) шматків, в кожному з яких струмок обов'язково визначений
+(робочий або ушкоджений). Крім того, для кожного варіанта визначається "решта", яка потім аналізується
+окремо.
+
+Предикат ~fixed~ знаходить черговий варіант ~Fixed~ та решту ~Rest~ для заданого шматка ~Chunk~ та
+лічильника ~Count~. Додатково задається акумулятор варіанту ~FixedIn~.
+
+Для нульового лічильника визначена частина повертається з акумулятору, а сам шматок повертається в
+решті. Це включає також пустий шматок, якщо шматок є пустим, а лічильник більше нуля, то предикат
+завершується невдало.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  fixed(Chunk, 0, Fixed, Fixed, Chunk).
+#+end_src
+
+Якщо перший струмок шматка є ушкодженим, то довжина всього шматка має бути не менше лічильника. До
+результата додається послідовність з ~Count~ ушкоджених струмків, а решта визначається як залишок шматка
+без цієї послідовності. Тут ми визначаємо додактово ~Count1~, щоб врахувати відкинутий ушкоджений
+струмок.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  fixed(['#'|Chunk], Count, FixedIn, Fixed, Rest) :-
+      Count > 0, Count1 is Count - 1,  %% Тільки для ненульового лічильника відкидаємо перший струмок
+      length(Chunk, L), L >= Count1,   %% Тільки якщо довжина шматка не менше лічильника
+      length(Damaged, Count) ,         %% Створюємо послідовність ушкоджених струмков ~Damaged~
+      maplist(=('#'), Damaged),        %% Заповнюємо послідовність літерами
+      append(Damaged, FixedIn, Fixed), %% Додаємо послідовність до результата
+      drop(Count1, Chunk, RestOut),    %% Відкидаємо з решти послідовність
+      separate(RestOut, Rest).         %% Відокремлюємо
+#+end_src
+
+Якщо перший струмок шматка не визначено, то розглядаємо два варіанти. Для ушкодженого струмка викликаємо
+~fixed~ рекурсивно, а для робочого додаємо його до ~Fixed~ і також аналізуємо решту. Використовуємо саме
+два визначення, щоб створити два варіанти.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  fixed(['?'|Chunk], Count, FixedIn, Fixed, Rest) :- fixed(['#'|Chunk], Count, FixedIn, Fixed, Rest).
+  fixed(['?'|Chunk], Count, FixedIn, ['.'|FixedOut], Rest) :- fixed(Chunk, Count, FixedIn, FixedOut, Rest).
+#+end_src
+
+Шматок має відокремлюватись від інших робочим струмком. Це значить, що після відкидання послідовності
+ушкоджених струмків, решта має або бути пустою, або починатися з невизначеного струмка, який вважається
+робочим і відкидається.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  separate([], []).
+  separate(['?'|Rest], Rest).
+#+end_src
+
+Предикат ~drop~ визначено в модулі ~dialect/hprolog~.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  :- use_module(library(dialect/hprolog)).
+#+end_src
+
+* Перевірка кількості шматків
+
+Назвемо шматок /повним/ (=total=), якщо він містить тільки невизначені струмки. Особливість повного
+шматка в тому, що він може бути визначений без використання лічильника.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  total([]).
+  total(['?'|Rest]) :- total(Rest).
+#+end_src
+
+В будь-якому рядку кількість неповних шматків не може бути більше, ніж кількість лічильників, оскільки
+кожний неповний шматок використовує, щонайменше, один лічильник. Але кількість неповних шматків може бути
+менше, оскільки один шматок при визначенні може використовувати декілька лічильників.
+
+Предикат ~possible~ перевіряє правильність кількості шматків. Коли перелік шматків пустий, перелік
+лічильників може бути будь-яким, оскільки лічильники, що залишилися, можуть бути використані при визначенні.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  possible([], _).
+#+end_src
+
+Повний шматок відкидається.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  possible([Chunk|Chunks], Counts) :-
+      total(Chunk), !,
+      possible(Chunks, Counts).
+#+end_src
+
+Для неповного шматка відкидаємо лічильник, який "використовується" для нього.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  possible([_|Chunks], [_|Counts]) :- possible(Chunks, Counts).
+#+end_src
+
+* Перевірка рядка
+
+Назвемо /рішенням/ (=solution=) перелік визначених шматків, які відповідають умовам.
+
+При пустого переліку лічильників рішення також є пустим, при цьому перелік шматків ігнорується. Навіть
+якщо цей перелік містить якісь шматки, усі вони мають бути повними, а отже, визначитись у коректні
+послідовності робочих струмків. Про всяк випадок, перевіримо це за допомогою предиката ~possible~.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  solution(Chunks, [], []) :- possible(Chunks, []).
+#+end_src
+
+На будь-якому кроці перевіряється, що рішення можливе за допомогою предиката ~possible~. Для нового
+шматка береться новий лічильник, шматок визначається і додається до рішення. Якщо решта шматка пуста,
+вона ігнорується, інакше додається до переліку шматків, і новий перелік знову перевіряється.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  solution([Chunk|Chunks], [Count|Counts], [Solution|Solutions]) :-
+      possible([Chunk|Chunks], [Count|Counts]),
+      fixed(Chunk, Count, [], Solution, Rest),
+      (Rest = [], !, solution(Chunks, Counts, Solutions) ; %% Пуста решта ігнорується
+       solution([Rest|Chunks], Counts, Solutions)).
+#+end_src
+
+Для повного шматка можливий також варіант, коли він повністю відкидається, як послідовність робочих
+струмків.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  solution([Chunk|Chunks], Counts, Solutions) :-
+      total(Chunk),
+      solution(Chunks, Counts, Solutions).
+#+end_src
+
+* COMMENT Перевірка переліку джерел
+
+Предикат ~proper_line~ перевіряє джерело відповідно до лічильників. Перевірка суттєво залежить від
+поточного режиму, який позначається знаком крапки (~.~) для /робочого режима/ (=operational mode=) і
+знаком хеша (~#~) для режима ушкодження (=damage mode=).
+
+Для пустого переліка струмків в робочому режимі перелік лічильників має бути пустим, а в режимі
+ушкодження містити рівно один нульовий лічильник.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line('.', [], [], 1):-!.
+  proper_line('#', [], [0], 1):-!.
+#+end_src
+
+Для непустого переліку струмків отримуємо чотири комбінації поточного режиму і першого струмка в
+переліку.
+
+В робочому режимі робочий струмок пропускається.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line('.', ['.'|Springs], Counts, N) :-
+      proper_line('.', Springs, Counts, N),!.
+#+end_src
+
+Ушкоджений струмок зменшує черговий лічильник (який має бути більше ~0~) і переводить в режим ушкодження.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line('.', ['#'|Springs], [Count|Counts], N) :-
+      Count > 0,
+      Count1 is Count - 1,
+      proper_line('#', Springs, [Count1|Counts], N).
+#+end_src
+
+В режимі ушкодження робочий струмок видаляє з переліка лічильників черговий лічильник (який має
+дорівнювати ~0~) і переходить в робочий режим.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line('#', ['.'|Springs], [Count|Counts], N) :-
+      Count =:= 0,
+      proper_line('.', Springs, Counts, N),!.
+#+end_src
+
+В режимі ушкодження ушкоджений струмок зменшує черговий лічильник.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line('#', ['#'|Springs], [Count|Counts], N) :-
+      Count1 is Count - 1,
+      proper_line('#', Springs, [Count1|Counts], N),!.
+#+end_src
+
+Для невизначених знаків отримаємо кількість рішень для робочого і ушкодженого струмка і складемо їх
+разом.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line(Mode, ['?'|Springs], Counts, N) :-
+      proper_line(Mode, ['.'|Springs], Counts, N1),
+      proper_line(Mode, ['#'|Springs], Counts, N2),
+      N is N1 + N2,!.
+#+end_src
+
+Будь-яка інша комбінація призводить до невдачі.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_line(_, _, _, 0):-!.
+#+end_src
+
+Предикат ~proper_lines~ перевіряє усі рядки.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  proper_lines([], 0).
+  proper_lines([[Springs, Counts]|Lines], N) :-
+      copy_springs(4, Springs, Springs, SpringsCopy),
+      copy_counts(4, Counts, Counts, CountsCopy),
+      writeln(SpringsCopy),
+      writeln(CountsCopy),
+      proper_line('.', SpringsCopy, CountsCopy, N1),
+      writeln(N1),
+      proper_lines(Lines, N2) ,
+      N is N1 + N2.
+#+end_src
+* COMMENT Пошук рішень
+
+
+Нехай предикат ~solutions~ знайде усі рядки струмків, які задовольняють заданим зразкам.
+
+Коли перелік лічильників пустий, то можливі наступні варіанти:
+
+- перелік струмків пустий;
+- перелік струмків містить тільки робочі або невизначені ключі.
+
+#+begin_src prolog :noweb-ref day12_1:Визначення
+  solutions([], []).
+  solutions(['.'|S], []) :- solutions(S, []).
+  solutions(['?'|S], []) :- solutions(S, []).
+#+end_src
+
+Нехай предикат ~slice~ 
