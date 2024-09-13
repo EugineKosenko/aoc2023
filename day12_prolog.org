@@ -14,6 +14,22 @@
      aggregate(count, solution(Chs, Cs1), L)
 #+end_src
 
+Для профілювання.
+
+#+begin_src prolog
+  ?- (retract(counter(_)), assert(counter(0))).
+  ?- time((read_file_line('day12_line.txt', (Ss, Cs)),
+           copy_springs(3, Ss, Ss, Ss1),
+           copy_counts(3, Cs, Cs, Cs1),
+           chunks(Ss1,Chs),
+           forall(solution(Chs, Cs1),
+                  (retract(counter(C)),
+                   NC is C + 1,
+                   assert(counter(NC)),
+                   (NC mod 1000000 =:= 0, writeln(NC);
+                    true)))))
+#+end_src
+
 * Читання даних
 
 Предикат ~read_file_lines~ читає з файла перелік рядків, при цьому він викликає рекурсивний предикат
@@ -168,7 +184,7 @@
 пустим, а лічильник більше нуля, то предикат завершується невдало.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  fixed(Chunk, 0, Chunk).
+  fixed(Chunk, 0, Chunk) :- !.
 #+end_src
 
 Якщо перший струмок шматка є ушкодженим, то довжина всього шматка має бути не менше лічильника. Решта
@@ -177,10 +193,9 @@
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
   fixed(['#'|Chunk], Count, Rest) :-
-      Count > 0, Count1 is Count - 1,  %% Тільки для ненульового лічильника відкидаємо перший струмок
-      length(Chunk, L), L >= Count1,   %% Тільки якщо довжина шматка не менше лічильника
-      drop(Count1, Chunk, RestOut),    %% Відкидаємо з решти послідовність
-      separate(RestOut, Rest).         %% Відокремлюємо
+      Count1 is Count - 1,          %% Тільки для ненульового лічильника відкидаємо перший струмок
+      drop(Count1, Chunk, RestOut), %% Відкидаємо з решти послідовність
+      separate(RestOut, Rest), !.   %% Відокремлюємо
 #+end_src
 
 Якщо перший струмок шматка не визначено, то розглядаємо два варіанти. Для ушкодженого струмка викликаємо
@@ -251,7 +266,7 @@
 послідовності робочих струмків. Про всяк випадок, перевіримо це за допомогою предиката ~possible~.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  solution(Chunks, []) :- possible(Chunks, []), !.
+  solution(_, []) :- !. %% possible(Chunks, []), !.
 #+end_src
 
 На будь-якому кроці перевіряється, що рішення можливе за допомогою предиката ~possible~. Для нового
@@ -260,7 +275,7 @@
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
   solution([Chunk|Chunks], [Count|Counts]) :-
-      possible([Chunk|Chunks], [Count|Counts]),
+      %% possible([Chunk|Chunks], [Count|Counts]),
       fixed(Chunk, Count, Rest),
       solution([Rest|Chunks], Counts).
 #+end_src
