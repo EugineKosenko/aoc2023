@@ -49,12 +49,11 @@ chunk(['.'|Springs], Chunk, Chunk, Springs) :- !.
 chunk([Spring|Springs], ChunkIn, [Spring|Chunk], Rest) :-
     Spring \= '.',
     chunk(Springs, ChunkIn, Chunk, Rest).
-fixed(Chunk, 0, Chunk).
+fixed(Chunk, 0, Chunk) :- !.
 fixed(['#'|Chunk], Count, Rest) :-
-    Count > 0, Count1 is Count - 1,  %% Тільки для ненульового лічильника відкидаємо перший струмок
-    length(Chunk, L), L >= Count1,   %% Тільки якщо довжина шматка не менше лічильника
-    drop(Count1, Chunk, RestOut),    %% Відкидаємо з решти послідовність
-    separate(RestOut, Rest).         %% Відокремлюємо
+    Count1 is Count - 1,          %% Тільки для ненульового лічильника відкидаємо перший струмок
+    drop(Count1, Chunk, RestOut), %% Відкидаємо з решти послідовність
+    separate(RestOut, Rest), !.   %% Відокремлюємо
 fixed(['?'|Chunk], Count, Rest) :- fixed(['#'|Chunk], Count, Rest).
 fixed(['?'|Chunk], Count, Rest) :- fixed(Chunk, Count, Rest).
 separate([], []).
@@ -67,9 +66,9 @@ possible([Chunk|Chunks], Counts) :-
     total(Chunk), !,
     possible(Chunks, Counts).
 possible([_|Chunks], [_|Counts]) :- possible(Chunks, Counts).
-solution(Chunks, []) :- possible(Chunks, []), !.
+solution(_, []) :- !. %% possible(Chunks, []), !.
 solution([Chunk|Chunks], [Count|Counts]) :-
-    possible([Chunk|Chunks], [Count|Counts]),
+    %% possible([Chunk|Chunks], [Count|Counts]),
     fixed(Chunk, Count, Rest),
     solution([Rest|Chunks], Counts).
 solution([Chunk|Chunks], Counts) :-
