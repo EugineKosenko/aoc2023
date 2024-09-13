@@ -4,6 +4,16 @@
   <<day12_1:Визначення>>
 #+end_src
 
+Виклик:
+
+#+begin_src prolog
+  ?- read_file_line('day12_line.txt', (Ss, Cs)),
+     copy_springs(4, Ss, Ss, Ss1),
+     copy_counts(4, Cs, Cs, Cs1),
+     chunks(Ss1,Chs),
+     aggregate(count, solution(Chs, Cs1), L)
+#+end_src
+
 * Читання даних
 
 Предикат ~read_file_lines~ читає з файла перелік рядків, при цьому він викликає рекурсивний предикат
@@ -63,12 +73,14 @@
       parse_nums(StringTail, NumTail).
 #+end_src
 
-* COMMENT Розмноження даних
+* Розмноження даних
+
+При розмноженні треба вказувати на одиницю менше необхідного.
 
 Розмножимо перелік струмків.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  copy_springs(0, _, Springs, Springs).
+  copy_springs(0, _, Springs, Springs) :- !.
   copy_springs(N, Springs, Copy, Extension) :-
       N1 is N - 1,
       append(Copy, ['?'], S1),
@@ -79,7 +91,7 @@
 Розмножимо перелік лічильників.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  copy_counts(0, _, Counts, Counts).
+  copy_counts(0, _, Counts, Counts) :- !.
   copy_counts(N, Counts, Copy, Extension) :-
       N1 is N - 1,
       append(Copy, Counts, C1),
@@ -150,40 +162,34 @@
 (робочий або ушкоджений). Крім того, для кожного варіанта визначається "решта", яка потім аналізується
 окремо.
 
-Предикат ~fixed~ знаходить черговий варіант ~Fixed~ та решту ~Rest~ для заданого шматка ~Chunk~ та
-лічильника ~Count~. Додатково задається акумулятор варіанту ~FixedIn~.
+Предикат ~fixed~ знаходить решту ~Rest~ для заданого шматка ~Chunk~ та лічильника ~Count~.
 
-Для нульового лічильника визначена частина повертається з акумулятору, а сам шматок повертається в
-решті. Це включає також пустий шматок, якщо шматок є пустим, а лічильник більше нуля, то предикат
-завершується невдало.
+Для нульового лічильника сам шматок повертається в решті. Це включає також пустий шматок, якщо шматок є
+пустим, а лічильник більше нуля, то предикат завершується невдало.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  fixed(Chunk, 0, Fixed, Fixed, Chunk).
+  fixed(Chunk, 0, Chunk).
 #+end_src
 
-Якщо перший струмок шматка є ушкодженим, то довжина всього шматка має бути не менше лічильника. До
-результата додається послідовність з ~Count~ ушкоджених струмків, а решта визначається як залишок шматка
-без цієї послідовності. Тут ми визначаємо додактово ~Count1~, щоб врахувати відкинутий ушкоджений
-струмок.
+Якщо перший струмок шматка є ушкодженим, то довжина всього шматка має бути не менше лічильника. Решта
+визначається як залишок шматка без цієї послідовності. Тут ми визначаємо додактово ~Count1~, щоб
+врахувати відкинутий ушкоджений струмок.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  fixed(['#'|Chunk], Count, FixedIn, Fixed, Rest) :-
+  fixed(['#'|Chunk], Count, Rest) :-
       Count > 0, Count1 is Count - 1,  %% Тільки для ненульового лічильника відкидаємо перший струмок
       length(Chunk, L), L >= Count1,   %% Тільки якщо довжина шматка не менше лічильника
-      length(Damaged, Count) ,         %% Створюємо послідовність ушкоджених струмков ~Damaged~
-      maplist(=('#'), Damaged),        %% Заповнюємо послідовність літерами
-      append(Damaged, FixedIn, Fixed), %% Додаємо послідовність до результата
       drop(Count1, Chunk, RestOut),    %% Відкидаємо з решти послідовність
       separate(RestOut, Rest).         %% Відокремлюємо
 #+end_src
 
 Якщо перший струмок шматка не визначено, то розглядаємо два варіанти. Для ушкодженого струмка викликаємо
-~fixed~ рекурсивно, а для робочого додаємо його до ~Fixed~ і також аналізуємо решту. Використовуємо саме
-два визначення, щоб створити два варіанти.
+~fixed~ рекурсивно з заміною поточного струмка на ушкоджений, а для робочого просто відкидаємо струмок і
+також аналізуємо решту. Використовуємо саме два визначення, щоб створити два варіанти.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  fixed(['?'|Chunk], Count, FixedIn, Fixed, Rest) :- fixed(['#'|Chunk], Count, FixedIn, Fixed, Rest).
-  fixed(['?'|Chunk], Count, FixedIn, ['.'|FixedOut], Rest) :- fixed(Chunk, Count, FixedIn, FixedOut, Rest).
+  fixed(['?'|Chunk], Count, Rest) :- fixed(['#'|Chunk], Count, Rest).
+  fixed(['?'|Chunk], Count, Rest) :- fixed(Chunk, Count, Rest).
 #+end_src
 
 Шматок має відокремлюватись від інших робочим струмком. Це значить, що після відкидання послідовності
@@ -245,7 +251,7 @@
 послідовності робочих струмків. Про всяк випадок, перевіримо це за допомогою предиката ~possible~.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  solution(Chunks, [], []) :- possible(Chunks, []).
+  solution(Chunks, []) :- possible(Chunks, []), !.
 #+end_src
 
 На будь-якому кроці перевіряється, що рішення можливе за допомогою предиката ~possible~. Для нового
@@ -253,20 +259,19 @@
 вона ігнорується, інакше додається до переліку шматків, і новий перелік знову перевіряється.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  solution([Chunk|Chunks], [Count|Counts], [Solution|Solutions]) :-
+  solution([Chunk|Chunks], [Count|Counts]) :-
       possible([Chunk|Chunks], [Count|Counts]),
-      fixed(Chunk, Count, [], Solution, Rest),
-      (Rest = [], !, solution(Chunks, Counts, Solutions) ; %% Пуста решта ігнорується
-       solution([Rest|Chunks], Counts, Solutions)).
+      fixed(Chunk, Count, Rest),
+      solution([Rest|Chunks], Counts).
 #+end_src
 
 Для повного шматка можливий також варіант, коли він повністю відкидається, як послідовність робочих
 струмків.
 
 #+begin_src prolog :noweb-ref day12_1:Визначення
-  solution([Chunk|Chunks], Counts, Solutions) :-
+  solution([Chunk|Chunks], Counts) :-
       total(Chunk),
-      solution(Chunks, Counts, Solutions).
+      solution(Chunks, Counts).
 #+end_src
 
 * COMMENT Перевірка переліку джерел

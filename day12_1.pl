@@ -27,6 +27,17 @@ parse_nums([], []).
 parse_nums([StringCount|StringTail], [NumCount|NumTail]) :-
     atom_number(StringCount, NumCount),
     parse_nums(StringTail, NumTail).
+copy_springs(0, _, Springs, Springs) :- !.
+copy_springs(N, Springs, Copy, Extension) :-
+    N1 is N - 1,
+    append(Copy, ['?'], S1),
+    append(S1, Springs, S2),
+    copy_springs(N1, Springs, S2, Extension).
+copy_counts(0, _, Counts, Counts) :- !.
+copy_counts(N, Counts, Copy, Extension) :-
+    N1 is N - 1,
+    append(Copy, Counts, C1),
+    copy_counts(N1, Counts, C1, Extension).
 chunks([], []) :- !.
 chunks(['.'|Springs], Chunks) :- chunks(Springs, Chunks), !.
 chunks(Springs, [Chunk|Chunks]) :-
