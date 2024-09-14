@@ -59,8 +59,24 @@ fixed(['?'|Chunk], Count, Rest) :- fixed(Chunk, Count, Rest).
 separate([], []).
 separate(['?'|Rest], Rest).
 :- use_module(library(dialect/hprolog)).
+:- use_module(library(memo)).
+%% :- volatile_memo total(+list).
 total([]).
 total(['?'|Rest]) :- total(Rest).
+%% total([]).
+%% total(['?']).
+%% total(['?','?']).
+%% total(['?','?','?']).
+%% total(['?','?','?','?']).
+%% total(['?','?','?','?','?']).
+%% %%total(comp(unknown,1726236685.5959709,1.9073486328125e-6)-fail,[#,#,?,?,?,?,?,?,?,?,?])).
+%% %%total(comp(unknown,1726236685.595964,5.8650970458984375e-5)-fail,[?,#,#,?,?,?,?,?,?,?,?,?])).
+%% %%total(comp(unknown,1726236685.5959563,0.00011467933654785156)-fail,[?,?,#,#,?,?,?,?,?,?,?,?,?])).
+%% total(['?','?','?','?','?','?']).
+%% total(['?','?','?','?','?','?','?']).
+%% total(['?','?','?','?','?','?','?','?']).
+
+%% :- volatile_memo possible(+list, +list).
 possible([], _).
 possible([Chunk|Chunks], Counts) :-
     total(Chunk), !,
@@ -69,6 +85,7 @@ possible([_|Chunks], [_|Counts]) :- possible(Chunks, Counts).
 solution(_, []) :- !. %% possible(Chunks, []), !.
 solution([Chunk|Chunks], [Count|Counts]) :-
     %% possible([Chunk|Chunks], [Count|Counts]),
+    length(Chunk, L), L >= Count,
     fixed(Chunk, Count, Rest),
     solution([Rest|Chunks], Counts).
 solution([Chunk|Chunks], Counts) :-

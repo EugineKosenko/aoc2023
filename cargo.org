@@ -38,3 +38,9 @@ Used in =day6= for high-precision computations.
   rug = { version = "*", features = ["float"] }
 #+end_src
 
+* =contracts= and =assertions=
+
+#+begin_src rust :noweb-ref aoc:Cargo:Залежності
+  contracts = "*"
+  all_asserts = "*"
+#+end_src
