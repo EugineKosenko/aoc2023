@@ -1,0 +1,26 @@
+read =: 1!:1 @ <
+align =: ,&LF @ (LF&, @ read)
+frets =: (LF,LF)&E.
+patterns =: (frets (<@}.);._2 ]) @ align f.
+align =: ,&LF
+frets =:  LF&E.
+format =: (frets ,;._2 ]) @ align f.
+is_proper =: -.@(2&|)@# *. (-: |.)
+left_proper =: ({.@(I.,#)) @ (is_proper\.) f.
+eval =: 4 : '((y&|)@((%&2)&.(-&y))) x'
+left_count =: left_proper eval # f.
+left_counts =: ((100&*) @ left_count) , (left_count @ |:) f.
+right_proper =: {: @ (0&,) @: >: @ I. @ (is_proper\) f.
+right_count =: (%&2) @ right_proper
+right_counts =: ((100&*) @ right_count) , (right_count @ |:) f.
+counts =: left_counts , right_counts f.
+part1 =: +/@(+/@:(counts@format@>)@:patterns) f.
+format =: '#'&= @ (frets ,;._2 ]) @ align f.
+fix =: (4 : '(-. y { x) y } x')"(_ 0)
+irows =: i.@(0&{)
+icols =: i.@(1&{)
+indices =: ,/ @ (irows (<@,)"0/ icols) @ $
+fix_counts =: counts @ fix indices
+suppress =: (]*~:)"1
+filter =: {. @ (-. @ (0 0 0 0&-:)"1 @ ] # ]) @: (counts suppress fix_counts) f.
+part2 =: +/@(+/@:(filter@format@>)@:patterns) f.
