@@ -1,0 +1,297 @@
+#+title: Adventure of Code, 2023, день 16, =Rust=
+
+* Частина 1
+:PROPERTIES:
+:ID:       33327edb-e00f-46d8-8dbe-1c5ca589d378
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day16_1.rs
+  <<day16:Декларації>>
+
+  <<day16:Визначення>>
+
+  fn main() {
+      <<day16:Прочитати-дані>>
+      println!("{}", count(&board, (0, 0, Dir::Right)));
+  }
+#+end_src
+
+* Читання даних
+
+#+begin_src rust :noweb-ref day16:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day16:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file)
+      .lines().map(|l| l.unwrap());
+#+end_src
+
+Створимо дошку.
+
+#+begin_src rust :noweb-ref day16:Декларації
+  use grid::Grid;
+#+end_src
+
+#+begin_src rust :noweb-ref day16:Визначення
+  type Board = Grid<char>;
+#+end_src
+
+#+begin_src rust :noweb-ref day16:Прочитати-дані
+  let mut board = Board::new(0, 0);
+  for line in lines {
+      let mut row = Vec::new();
+      for c in line.chars() {
+          row.push(c);
+      }
+      board.push_row(row);
+  }
+#+end_src
+
+* Отримання кількості активованих комірок
+
+Функція ~count~ підраховує кількість активованих комірок для заданої дошки і вхідного променя.
+
+#+begin_src rust :noweb yes :noweb-ref day16:Визначення
+  fn count(board: &Board, beam: Beam) -> usize {
+      <<day16:count:Дії>>
+  }
+#+end_src
+
+Визначимо кількість рядків і стовбців.
+
+#+begin_src rust :noweb-ref day16:count:Дії
+  let rows = board.rows();
+  let cols = board.rows();
+#+end_src
+
+* Напрямки
+
+#+begin_src rust :noweb-ref day16:Визначення
+  #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+  enum Dir { Up, Right, Down, Left }
+#+end_src
+
+* Відвідані комірки
+
+/Комірка/ (=tile=) є /відвіданою/ (=visited=), якщо через неї проходив промінь. Таблиця ~visited~
+відображує відвідані комірки, і спочатку вона пуста.
+
+Крім того, для успішного завершення циклу обробки променя, треба пам'ятати, звідки в комірку заходив
+промінь, більше того, різні промені можуть заходити в комірку з різних напрямків. Об'єднаємо цю
+інформацію за допомогою множини напрямків, пуста множина означатиме неактивовану комірку, а в непуста
+множина визначатимо перелік напрямків, з яких промені заходили в комірку.
+
+#+begin_src rust :noweb-ref day16:Декларації
+  use std::collections::BTreeSet;
+#+end_src
+
+#+begin_src rust :noweb-ref day16:Визначення
+  type Dirs = BTreeSet<Dir>;
+  type Visited = Grid<Dirs>;
+#+end_src
+
+#+begin_src rust :noweb-ref day16:count:Дії
+  let mut visited = Visited::new(rows, cols);
+  visited.fill(BTreeSet::new());
+#+end_src
+
+* Промені
+
+/Промінь/ (=beam=) визначається позицією, яка містить рядок і стовбець, і /напрямку/ (=direction=).
+
+#+begin_src rust :noweb-ref day16:Визначення
+  type Beam = (usize, usize, Dir);
+#+end_src
+
+Оскільки промені можуть /розщеплюватись/ (=split=), визначимо додатково перелік променів для обробки. Цей
+вектор спочатку містить тільки один промінь, який знаходиться в позиції ~(0, 0)~ і рухається в напрямку
+~Right~.
+
+#+begin_src rust :noweb-ref day16:Визначення
+  type _Beams = Vec<Beam>;
+#+end_src
+
+#+begin_src rust :noweb-ref day16:count:Дії
+  let mut beams = vec![beam];
+#+end_src
+
+* Обробка променів
+
+Промені оброблюються в циклі до тих пір, поки в переліку є хоча б один промінь. Промінь завершується,
+коли виходить за межі дошки, або комірка вже відвідувалася з цього напрямку. В іншому випадку промінь
+відвідує поточну комірку. Для простоти промінь після кожного кроку поміщається знову до переліку. Це
+можна оптимізувати, виконуючи дії з тим самим променем в циклі, поки він не вийде за межі дошки або не
+увійде в цикл відвідування.
+
+Для простоти, перевірка виходу за межі дошки не включає перевірку за нижню межу (~<0~), оскільки значення
+координат і так невід'ємні. Замість цього фіксуємо вихід за межі дошки кількістю рядків або стовбців.
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Дії
+  while let Some((rin, cin, din)) = beams.pop() {
+      if rin < rows && cin < cols && !visited.get(rin, cin).unwrap().contains(&din) {
+          visited.get_mut(rin, cin).unwrap().insert(din);
+          <<day16:count:Обробити-промінь>>
+          beams.push((rout, cout, dout));
+      }
+  }
+#+end_src
+
+Обробка променю виконується в два етапи:
+
+- визначення наступного напрямку променю;
+- визначення наступної позиції променю.
+
+Наступний напрямок проміню залежить від змісту комірки. 
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Обробити-промінь
+  let dout = match *board.get(rin, cin).unwrap() {
+      '.' => din,
+      '/' => {
+          <<day16:count:Визначити-напрямок-після-прямого-дзеркала>>
+      },
+      '\\' => {
+          <<day16:count:Визначити-напрямок-після-зворотнього-дзеркала>>
+      },
+      '-' => {
+          <<day16:count:Визначити-напрямок-після-горизонтального-розщеплювача>>
+      },
+      '|' => {
+          <<day16:count:Визначити-напрямок-після-вертикального-розщеплювача>>
+      },
+      c => { panic!("Invalid tile {}", c); }
+  };
+#+end_src
+
+Наступна позиція залежить від наступного напрямку.
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Обробити-промінь
+  let (rout, cout) = match dout {
+      Dir::Up => (if rin > 0 { rin - 1 } else { rows }, cin),
+      Dir::Right => (rin, cin + 1),
+      Dir::Down => (rin + 1, cin),
+      Dir::Left => (rin, if cin > 0 { cin - 1 } else { cols })
+  };
+#+end_src
+
+** Напрямок для прямого дзеркала
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Визначити-напрямок-після-прямого-дзеркала
+  match din {
+      Dir::Up => Dir::Right,
+      Dir::Right => Dir::Up,
+      Dir::Down => Dir::Left,
+      Dir::Left => Dir::Down
+  }
+#+end_src
+
+** Напрямок для зворотнього дзеркала
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Визначити-напрямок-після-зворотнього-дзеркала
+  match din {
+      Dir::Up => Dir::Left,
+      Dir::Right => Dir::Down,
+      Dir::Down => Dir::Right,
+      Dir::Left => Dir::Up
+  }
+#+end_src
+
+** Напрямок для горизонтального розщеплювача
+
+Горизонтальні напрямки не змінюються, вертикальні "розщеплюються". Один з напрямків (для визначенності,
+вліво) відкладається в переліку променів для подальшої обробки, а інший обробляється
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Визначити-напрямок-після-горизонтального-розщеплювача
+  match din {
+      Dir::Up | Dir::Down => { beams.push((rin, cin, Dir::Left)); Dir::Right },
+      d => d
+  }
+#+end_src
+
+** Напрямок для вертикального розщеплювача
+
+Вертикальні напрямки не змінюються, горизонтальні "розщеплюються". Один з напрямків (для визначенності,
+вниз) відкладається в переліку променів для подальшої обробки, а інший обробляється
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Визначити-напрямок-після-вертикального-розщеплювача
+  match din {
+      Dir::Right | Dir::Left => { beams.push((rin, cin, Dir::Down)); Dir::Up },
+      d => d
+  }
+#+end_src
+
+* Активовані комірки
+
+Функція ~energized~ повертає таблицю /активованих/ (=energized=) комірок, в якій усі активовані комірки
+помічені знаком хеша (~#~), а неактивовані --- крапкою.
+
+#+begin_src rust :noweb-ref day16:Визначення
+  type Energized = Grid<char>;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day16:Визначення
+  fn energized(visited: &Visited) -> Energized {
+      let mut result = Energized::new(visited.rows(), visited.cols());
+      for ((r, c), v) in visited.indexed_iter() {
+          ,*result.get_mut(r, c).unwrap() = if v.is_empty() { '.' } else { '#' };
+      }
+      result
+  }
+#+end_src
+
+* Результат
+
+Результатом є кількість активованих комірок.
+
+#+begin_src rust :noweb yes :noweb-ref day16:count:Дії
+  energized(&visited).iter().filter(|c| **c == '#').count()
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       0b4ace36-55e1-4d9a-90bb-eed2f5d109f9
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day16_2.rs
+  <<day16:Декларації>>
+
+  <<day16:Визначення>>
+  <<day16_2:Визначення>>
+
+  fn main() {
+      <<day16:Прочитати-дані>>
+      <<day16_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+* Пошук найкращого променя зверху
+
+Перебираємо комірки в кожному з бічних рядків і для усіх комірок вказуємо направлення вниз. Отримаємо кількість
+активованих комірок і знаходимо максимум.
+
+#+begin_src rust :noweb yes :noweb-ref day16_2:Дії
+  let result = (0..board.cols())
+      .map(|c| {
+          count(&board, (0, c, Dir::Down))
+      })
+      .max().unwrap();
+  let result = (0..board.rows())
+      .map(|r| {
+          count(&board, (r, board.cols() - 1, Dir::Left))
+      })
+      .max().unwrap().max(result);
+  let result = (0..board.cols())
+      .map(|c| {
+          count(&board, (board.rows() - 1, c, Dir::Up))
+      })
+      .max().unwrap().max(result);
+  let result = (0..board.rows())
+      .map(|r| {
+          count(&board, (r, 0, Dir::Right))
+      })
+      .max().unwrap().max(result);
+#+end_src
+
