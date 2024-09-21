@@ -610,7 +610,6 @@
 позначимо як ~m~.
 
 #+begin_src rust :noweb yes :noweb-ref day14_2:Знайти-цикл
-  let k = (limit - n2) / (n2 - n1);
   let m = (limit - n2) % (n2 - n1);
 #+end_src
 

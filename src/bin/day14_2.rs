@@ -94,7 +94,6 @@ fn main() {
         n2 += 2;
         if board1 == board2 { break; }
     }
-    let k = (limit - n2) / (n2 - n1);
     let m = (limit - n2) % (n2 - n1);
     grid = board2;
     for _ in 0..m {

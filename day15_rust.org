@@ -1,0 +1,205 @@
+#+title: Adventure of Code, 2023, день 15, =Rust=
+
+* Частина 1
+:PROPERTIES:
+:ID:       b3d375db-4cc8-4e58-8de6-5cec065d4b05
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day15_1.rs
+  <<day15:Декларації>>
+
+  <<day15:Визначення>>
+
+  fn main() {
+      <<day15:Прочитати-дані>>
+      <<day15_1:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+* Читання даних
+
+#+begin_src rust :noweb-ref day15:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day15:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let mut lines = io::BufReader::new(file)
+      .lines().map(|l| l.unwrap());
+#+end_src
+
+Дані представляють один рядок, хоча в завданні вказано, що для багатьох рядків треба було об'єднати їх в
+один рядок.
+
+#+begin_src rust :noweb-ref day15:Прочитати-дані
+  let line = lines.next().unwrap();
+#+end_src
+
+Візьмемо перший рядок і розділимо його по комі (~,~).
+
+#+begin_src rust :noweb-ref day15:Прочитати-дані
+  let snippets = line.split(",");
+#+end_src
+
+* Обчислення хешу
+
+#+begin_src rust :noweb-ref day15:Визначення
+  fn hash(s: &str) -> usize {
+      s.chars().fold(0, |a, c| ((a + c as usize) * 17) % 256)
+  }
+#+end_src
+
+Протестуємо функцію.
+
+#+begin_src rust :noweb-ref day15:Визначення
+  #[test]
+  fn test_hash() {
+      assert_eq!(hash("HASH"), 52);
+      assert_eq!(hash("rn=1"), 30);
+      assert_eq!(hash("rn"), 0);
+      assert_eq!(hash("cm"), 0);
+      assert_eq!(hash("ot"), 3);
+  }
+#+end_src
+
+* Обчислення результату
+
+Результат є просто сумою хешей усіх фрагментів.
+
+#+begin_src rust :noweb-ref day15_1:Дії
+  let result = snippets.fold(0, |a, s| a + hash(s));
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       d401dbe5-e4fc-48e9-9476-0b9a7acd67cc
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day15_2.rs
+  <<day15:Декларації>>
+  <<day15_2:Декларації>>
+
+  <<day15:Визначення>>
+  <<day15_2:Визначення>>
+
+  fn main() {
+      <<day15:Прочитати-дані>>
+      let mut result = 0;
+      <<day15_2:Дії>>
+      println!("{}", result);
+  }
+#+end_src
+
+* Збирання линз
+
+Для впорядкованного представлення скриньок використовуємо двійкову мапу (~BTreeMap~), ключом до якої є
+номер скриньки, а значенням --- вектор пар з мітки лінзи і оптичної довжини.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Декларації
+  use std::collections::BTreeMap;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Визначення
+  type Map = BTreeMap<usize, Vec<(String, usize)>>;
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Дії
+  let mut map = Map::new();
+#+end_src
+
+Перебираємо фрагменти. Якщо фрагмент містить знак рівності (~=~), вставляємо линзу, інакше видаляємо
+линзи з тою ж міткою.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Дії
+  for snippet in snippets {
+      if snippet.contains('=') {
+          <<day15_2:Вставити-линзу>>
+      } else {
+          <<day15_2:Видалити-линзи>>
+      }
+  }
+#+end_src
+
+** Вставка линзи
+
+При вставці виділяємо у фрагменті мітку та фокусну відстань.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
+  let mut lens = snippet.split("=");
+  let label = lens.next().unwrap();
+  let length = lens.next().unwrap().parse::<usize>().unwrap();
+#+end_src
+
+Визначимо номер скриньки ~n~ як хеш мітки.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
+  let n = hash(label);
+#+end_src
+
+Отримаємо скриньку за номером. Якщо такої скриньки ще немає на мапі, додаємо пусту скриньку.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
+  if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+  let box_ = map.get_mut(&n).unwrap();
+#+end_src
+
+Перебираємо елементи скриньки. Якщо знайдено линзу з міткою ~label~, замінюємо фокусну відстань, в іншому
+випадку додаємо лінзу в кінець скриньки.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
+  let mut lens_not_found = true;
+  for i in 0..box_.len() {
+      if box_[i].0 == label {
+          box_[i].1 = length;
+          lens_not_found = false;
+          break;
+      }
+  }
+  if lens_not_found { box_.push((label.to_owned(), length)); }
+#+end_src
+
+** Видалення линзи
+
+При видаленні отримуємо мітку, відкидаючи останній знак дефісу (~-~).
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Видалити-линзи
+  let label = &snippet[..snippet.len()-1];
+#+end_src
+
+Визначимо номер скриньки ~n~ як хеш мітки.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Видалити-линзи
+  let n = hash(label);
+#+end_src
+
+Отримаємо скриньку за номером. Якщо такої скриньки ще немає на мапі, додаємо пусту скриньку.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Видалити-линзи
+  if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+  let box_ = map.get(&n).unwrap();
+#+end_src
+
+Видаляємо усі линзи з цією міткою.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Видалити-линзи
+  map.insert(
+      n, box_.iter()
+          .filter_map(|(lb, ln)| {
+              if lb != label { Some((lb.to_owned(), *ln)) } else { None }
+          })
+          .collect::<Vec<_>>());
+#+end_src
+
+* Обчислення результату
+
+Перебираємо скриньки, в кожній скринці перебираємо линзи і додаємо до результата обчислений добуток.
+
+#+begin_src rust :noweb yes :noweb-ref day15_2:Дії
+  for (n, box_) in map {
+      for i in 0..box_.len() {
+          result += (n+1) * (i+1) * box_[i].1;
+      }
+  }
+#+end_src
