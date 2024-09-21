@@ -1,4 +1,4 @@
-#+title: Adventure of Code, 2023, день 13
+#+title: Adventure of Code, 2023, день 13, =J=
 
 #+begin_src j :noweb yes :tangle day13.ijs
   <<day13:Визначення>>

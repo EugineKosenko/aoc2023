@@ -1,0 +1,174 @@
+#+title: Adventure of Code, 2023, день 14, =C=
+
+Реалізація другої частини на =Rust= виявилася недостатньо ефективною навіть після усіх можливих
+оптимізацій. Однак, алгоритм було відлагоджено так, що його можна переписати на =C=.
+
+#+begin_src c :noweb yes :mkdirp yes :tangle day14_2.c
+  #include <stdio.h>
+  <<day14_2:Декларації>>
+
+  <<day14_2:Визначення>>
+
+  int main(int argc, char *argv[]) {
+      unsigned result = 0;
+      <<day14_2:Прочитати-дані>>
+      <<day14_2:Нахилити-дошку>>
+      <<day14_2:Підрахувати-навантаження>>
+      printf("%u", result);
+  }
+#+end_src
+
+* Структури даних
+
+Для швидкості будемо розподіляти пам'ять статично, тому визначимо межу розподілу ~LIMIT~. Для завдання
+достатньо значення ~100~, за необхідності це значення можна збільшити.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  #define LIMIT 100
+#+end_src
+
+Визначимо позицію ~Pos~, як структуру, яка містить номер рядка (~row~) та символ (~symbol~), що
+знаходиться в цьому рядку.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  typedef struct {
+    unsigned row;
+    char symbol;
+  } Pos;
+#+end_src
+
+Визначимо стовбець, як структуру, яка включає кількість непустих рядків і перелік непустих позицій.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  typedef struct {
+    unsigned count;
+    Pos pos[LIMIT];
+  } Col;
+#+end_src
+
+/Дошка/ (=board=) об'єднує конкретні розміри з масивм стовбців.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  typedef struct {
+    unsigned rsize, csize;
+    Col cols[LIMIT];
+  } Board;
+#+end_src
+
+В алгоритмі використовується головна дошка ~board~, яка перетворюється в повернену дошку ~rotated~, а
+потім вони міняються місцями.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  Board board;
+  Board rotated;
+#+end_src
+
+* Читання данних
+
+Для простоти читаємо дошку з вхідного потоку прямо в структуру ~board~. Для буфера резервуємо ще два
+символи, один для перевода рядка (~\n~), і один нульовий термінатор.
+
+Довжина строки визначає кількість стовпців, однак необхідно відкинути паразитний перевід рядка. Загальна
+кількість прочитаних рядків визначає кількість рядків дошки.
+
+#+begin_src c :noweb-ref day14_2:Декларації
+  #include <string.h>
+#+end_src
+
+#+begin_src c :noweb yes :noweb-ref day14_2:Прочитати-дані
+  char buffer[LIMIT+2];
+  unsigned r = 0;
+  while (fgets(buffer, LIMIT+2, stdin) != NULL) {
+    board.csize = strlen(buffer) - 1;
+    buffer[board.csize] = '\0';
+    unsigned c = 0;
+    for (char *s = buffer; *s; s += 1) {
+      <<day14_2:Розмістити-символ>>
+      c += 1;
+    }
+    r += 1;
+  }
+  board.rsize = r;
+#+end_src
+
+Для кожного символа у відповідну колонку додаємо рядок з символом, якщо він не є пустим (~.~).
+
+#+begin_src c :noweb-ref day14_2:Розмістити-символ
+  if (*s != '.') {
+    board.cols[c].pos[board.cols[c].count].row = r;
+    board.cols[c].pos[board.cols[c].count].symbol = *s;
+    board.cols[c].count += 1;
+  }
+#+end_src
+
+У повернутої дошки розміри міняються місцями.
+
+#+begin_src c :noweb yes :noweb-ref day14_2:Прочитати-дані
+  rotated.csize = board.rsize;
+  rotated.rsize = board.csize;
+#+end_src
+
+Дошку ~rotated~ робимо пустою, для цього достатньо встановити в нуль усі значення ~cols[c].count~.
+
+#+begin_src c :noweb yes :noweb-ref day14_2:Прочитати-дані
+  for (unsigned c = 0; c < rotated.csize; c += 1) {
+    rotated.cols[c].count = 0;
+  }
+#+end_src
+
+* Друк дошки
+
+Функція ~print_board~ роздруковує дошку в наочному форматі. Для цього спочатку структура переформовується
+в лінійний рядок, який потім роздруковується.
+
+#+begin_src c :noweb-ref day14_2:Визначення
+  void print_board(Board *board) {
+    char buffer[LIMIT * LIMIT];
+    memset(buffer, '.', LIMIT * LIMIT);
+
+    for (unsigned c = 0; c < board->csize; c += 1) {
+      for (unsigned p = 0; p < board->cols[c].count; p += 1) {
+        buffer[LIMIT * board->cols[c].pos[p].row + c] = board->cols[c].pos[p].symbol;
+      }
+    }
+
+    for (unsigned r = 0; r < board->rsize; r += 1) {
+      for (unsigned c = 0; c < board->csize; c += 1) {
+        printf("%c", buffer[LIMIT * r + c]);
+      }
+      printf("\n");
+    }
+  }
+#+end_src
+
+* Нахил дошки
+
+Використовуємо відповідно до [[id:0e020d1a-8ac6-4895-b504-cbd6b91b23d1][алгоритму]]. Щоб швидко обмінювати дошки місцями, використовуватимо вказівники
+на дошки.
+
+#+begin_src c :noweb-ref day14_2:Нахилити-дошку
+  Board *brd = &board, *rot = &rotated;
+  for (unsigned step = 0; step < 4000000000; step += 1) {
+    for (unsigned c = 0; c < brd->csize; c += 1) {
+      unsigned i = 0;
+      for (unsigned p = 0; p < brd->cols[c].count; p += 1) {
+        unsigned r = brd->cols[c].pos[p].row;
+        char s = brd->cols[c].pos[p].symbol;
+        unsigned l = (s == '#') ? r : i;
+        unsigned k = brd->rsize - 1 - l;
+        unsigned rc = rot->cols[k].count;
+        rot->cols[k].pos[rc].row = c;
+        rot->cols[k].pos[rc].symbol = s;
+        rot->cols[k].count += 1;
+        i = l + 1;
+      }
+      brd->cols[c].count = 0;
+    }
+    Board *tmp = brd;
+    brd = rot;
+    rot = tmp;
+    if (step%40000 == 0) { printf("%u\n", step/4); }
+  }
+  printf("\n");
+  print_board(brd);
+#+end_src

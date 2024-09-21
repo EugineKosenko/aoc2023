@@ -1,0 +1,626 @@
+#+title: Adventure of Code, 2023, день 14, =Rust=
+
+Друга частина завдання виявилась складною з точки зору ефективності. Будь які хитрощі з заміною дошки
+ефективними колекціями координат не дали суттєвого виграшу швидкості для великих дошок і великої
+кількості кроків.
+
+Ідея рішерння використовує [[https://uk.wikipedia.org/wiki/%D0%92%D0%B8%D1%8F%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F_%D1%86%D0%B8%D0%BA%D0%BB%D1%83#%D0%A7%D0%B5%D1%80%D0%B5%D0%BF%D0%B0%D1%85%D0%B0_%D1%96_%D0%B7%D0%B0%D1%94%D1%86%D1%8C_%D0%A4%D0%BB%D0%BE%D0%B9%D0%B4%D0%B0][алгоритм Флойда]].
+
+* Частина 1
+:PROPERTIES:
+:ID:       cfd54cd4-98f7-4768-bb22-82af130e4769
+:END:
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day14_1.rs
+  <<day14:Декларації>>
+
+  <<day14:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day14:Прочитати-дані>>
+      <<day14:Нахилити-на-північ>>
+      <<day14:Підрахувати-навантаження>>
+      println!("{}", result);
+  }
+#+end_src
+
+* Тестування
+
+#+begin_src rust :noweb yes :noweb-ref day14:Визначення
+  #[cfg(test)]
+  mod tests {
+      use super::*;
+
+      <<day14:test:Визначення>>
+  }
+#+end_src
+
+* Читання рядків
+
+#+begin_src rust :noweb-ref day14:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day14:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file)
+      .lines().map(|l| l.unwrap());
+#+end_src
+
+Створимо матрицю площини. 
+
+#+begin_src rust :noweb-ref day14:Декларації
+  use grid::Grid;
+#+end_src
+
+#+begin_src rust :noweb-ref day14:Прочитати-дані
+  let mut grid = Grid::new(0, 0);
+  for line in lines {
+      let mut row = Vec::new();
+      for ch in line.chars() {
+          row.push(ch);
+      }
+      grid.push_row(row);
+  }
+#+end_src
+
+* Нахил дошки
+:PROPERTIES:
+:ID:       66c2c321-643a-43b8-b47c-b466bd2b7b00
+:END:
+
+** На північ
+
+Дошка нахиляється вгору ("на північ"), тобто, кожний круглий камінець котиться "наверх", поки:
+
+- досягає першого (нульового) рядка;
+- зверху опиняється камінець (~#~ або ~O~).
+
+Для переміщення перебираємо усі камінці, знаходимо найвищу свободну позицію, після чого переміщаємо
+камінець. Камінці в найвищому рядку вже знаходяться на своєму місці, тому починаємо перебір з другого
+рядка.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-північ
+  for r in 1..grid.rows() {
+      for c in 0..grid.cols() {
+          if *grid.get(r, c).unwrap() == 'O' {
+              <<day14:Нахилити-на-північ:Знайти-рядок>>
+              <<day14:Нахилити-на-північ:Перемістити-камінець>>
+          }
+      }
+  }
+#+end_src
+
+Для пошуку рядка перебираємо усі рядки, починаючи з першого рядка над камінцем, і закінчуючи необхідною
+умовою. При цьому ми, однак перевіряємо не завершення, а продовження, коли індекс більше ~0~, а в позиція
+вільна (~.~).
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-північ:Знайти-рядок
+  let mut i = r as isize - 1;
+  while i >= 0 && *grid.get(i, c).unwrap() == '.' {
+      i -= 1;
+  }
+#+end_src
+
+При переміщенні просто обмінюємо значки позицій.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-північ:Перемістити-камінець
+  if i + 1 < (r as isize) {
+      ,*grid.get_mut(i + 1, c).unwrap() = 'O';
+      ,*grid.get_mut(r, c).unwrap() = '.';
+  }
+#+end_src
+
+** На захід
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-захід
+  for r in 0..grid.rows() {
+      for c in 1..grid.cols() {
+          if *grid.get(r, c).unwrap() == 'O' {
+              <<day14:Нахилити-на-захід:Знайти-рядок>>
+              <<day14:Нахилити-на-захід:Перемістити-камінець>>
+          }
+      }
+  }
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-захід:Знайти-рядок
+  let mut i = c as isize - 1;
+  while i >= 0 && *grid.get(r, i).unwrap() == '.' {
+      i -= 1;
+  }
+#+end_src
+
+При переміщенні просто обмінюємо значки позицій.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-захід:Перемістити-камінець
+  if i + 1 < (c as isize) {
+      ,*grid.get_mut(r, i + 1).unwrap() = 'O';
+      ,*grid.get_mut(r, c).unwrap() = '.';
+  }
+#+end_src
+
+** На південь
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-схід
+  for r in (0..(grid.rows() - 1)).rev() {
+      for c in 0..grid.cols() {
+          if *grid.get(r, c).unwrap() == 'O' {
+              <<day14:Нахилити-на-південь:Знайти-рядок>>
+              <<day14:Нахилити-на-південь:Перемістити-камінець>>
+          }
+      }
+  }
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-південь:Знайти-рядок
+  let mut i = r + 1;
+  while i < grid.rows() && *grid.get(i, c).unwrap() == '.' {
+      i += 1;
+  }
+#+end_src
+
+При переміщенні просто обмінюємо значки позицій.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-південь:Перемістити-камінець
+  if i - 1 > r {
+      ,*grid.get_mut(i - 1, c).unwrap() = 'O';
+      ,*grid.get_mut(r, c).unwrap() = '.';
+  }
+#+end_src
+
+** На схід
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-схід
+  for r in 0..grid.rows() {
+      for c in (0..(grid.cols() - 1)).rev() {
+          if *grid.get(r, c).unwrap() == 'O' {
+              <<day14:Нахилити-на-схід:Знайти-рядок>>
+              <<day14:Нахилити-на-схід:Перемістити-камінець>>
+          }
+      }
+  }
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-схід:Знайти-рядок
+  let mut i = c + 1;
+  while i < grid.cols() && *grid.get(r, i).unwrap() == '.' {
+      i += 1;
+  }
+#+end_src
+
+При переміщенні просто обмінюємо значки позицій.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-на-схід:Перемістити-камінець
+  if i - 1 > c {
+      ,*grid.get_mut(r, i - 1).unwrap() = 'O';
+      ,*grid.get_mut(r, c).unwrap() = '.';
+  }
+#+end_src
+
+* Підрахунок навантаження
+:PROPERTIES:
+:ID:       1ced1a4e-9a90-4a3c-b0bc-43f8fac99114
+:END:
+
+Для підрахунку навантаження для кожного круглого камінця додамо до результата його рядок, однак номер
+рядка треба "віддзеркалити", тобто, найвищий рядок отримає номер, рівний кількості рядків.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Підрахувати-навантаження
+  for ((r, _), ch) in grid.indexed_iter() {
+      if *ch == 'O' {
+          result += grid.rows() - r;
+      }
+  }
+#+end_src
+
+* Частина 2
+:PROPERTIES:
+:ID:       b57ac5d9-4c7c-442d-94ff-b548d87af097
+:END:
+
+Виконуємо три цикли для відлагодження.
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day14_2.rs
+  <<day14:Декларації>>
+
+  <<day14:Визначення>>
+  <<day14_2:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day14:Прочитати-дані>>
+      let limit = 1_000_000_000;
+      <<day14_2:Знайти-цикл>>
+      <<day14_2:Обчислити-останню-позицію>>
+      <<day14:Підрахувати-навантаження>>
+      println!("{}", result);
+  }
+#+end_src
+
+* COMMENT Оптимізований нахил дошки
+:PROPERTIES:
+:ID:       899fc35c-9924-4f48-9bc5-71991b8d4f80
+:END:
+
+Перебираються не камінці, а рядки чи стовпці, в яких переміщуються камінці.
+
+** На північ
+
+Для кожного стовпця ~c~ перебираємо рядки з двома індексами, ~i~ та ~j~. Індекс ~i~ вказує на першу
+вільну позицію, а ~j~ --- на першу зайняту позицію після першої вільної. Значення ~j~ завжди більше ~i~,
+навіть коли ~i~ виходить за межі дошки. Перебір закінчується, коли ~j~ досягає кінця дошки. Напочатку
+перебора для стовпця визначаємо початкові значення ~i~ та ~j=i+1~, які обидва можуть вийти за кінець дошки.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Нахилити-на-північ
+  for c in 0..grid.cols() {
+      let mut i = 0;
+      let mut j;
+      <<day14_2:Нахилити-на-північ:Встановити-початок>>
+      while j < grid.rows() {
+          <<day14_2:Нахилити-на-північ:Обробити-наступну-позицію>>
+      }
+  }
+#+end_src
+
+При встановленні початку просуваємо ~i~, поки не знайдемо першу вільну позицію, після чого встановлюємо
+~j~ в наступну позицію.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Нахилити-на-північ:Встановити-початок
+  while i < grid.rows() && *grid.get(i, c).unwrap() != '.' {
+      i += 1;
+  }
+  j = i + 1;
+#+end_src
+
+При обробці наступної позиції враховуємо, що там знаходиться:
+
+- для пустої позиції (~.~) індекс ~j~ просувається вперед;
+- для круглого камінця (~O~) переміщаємо його в позицію ~i~, після чого просуваємо обидва індекса вперед;
+- для квадратного камінця (~#~) встановлюємо початок з позиції, наступної за цим камінцем.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Нахилити-на-північ:Обробити-наступну-позицію
+  match grid.get(j, c).unwrap() {
+      '.' => { j += 1; },
+      'O' => {
+          ,*grid.get_mut(i, c).unwrap() = 'O'; i += 1;
+          ,*grid.get_mut(j, c).unwrap() = '.'; j += 1;
+      },
+      '#' => {
+          i = j + 1;
+          <<day14_2:Нахилити-на-північ:Встановити-початок>>
+      },
+      c => { panic!("Invalid symbol '{}'", c); }
+  }
+#+end_src
+
+* COMMENT Отримання колекцій
+
+Прямий перебір дошки при нахилі є неефективним навіть після [[id:899fc35c-9924-4f48-9bc5-71991b8d4f80][оптимізації]]. Тому повністю переглянемо
+алгорітм, використовуючи множини координат. Для простоти визначимо кількість рядків і стовпців як окремі
+константи.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Створити-колекції
+  let rows = grid.rows();
+  let cols = grid.cols();
+#+end_src
+
+Оскільки колекції обмежені в представництві, будемо завжди нахиляти дошку в одному напрямку (для
+визначеності, в північному), після чого дошка повертатиметься на ~90~ градусів за годинником. Після
+чотирьох циклів дошка повертається в вихідне положення, але в цілому виглядатиме так, що її нахилили в
+потрібному порядку у всіх чотирьох напрямках.
+
+Нехай структура ~positions~ містить описи камінців, водночас блокуючих і круглих. Оскільки основним
+напрямком є півничний, "розріжемо" дошку на стовпчики, і в кожному стовпчику сформуємо впорядковану
+послідовність (вектор) номерів рядків, де знаходяться камінці. Будь-які динамічні структури (на зразок
+~BTreeSet~ або ~VecDeque~) виявились неефективними. Тому реалізуємо все на основі найпростішої структури
+--- масива. Крім рядка, вказуємо також (для простоти, літерами ~#~ та ~O~) тип камінця. Послідовності
+рядків об'єднуються в вектор стовпців.
+
+Оскільки масив є статичною структурою, при розподілі пам'яті ми маємо вказати розмір "з запасом". При
+цьому реальний розмір масивів рядків має зберігатися в окремому масиві ~pcounts~.
+
+Оскільки масив є статичною структурою, 
+
+#+begin_src rust :noweb yes :noweb-ref day14:Визначення
+  type Positions = [(usize, char); 100];
+  type Counts = [usize; 100];
+  type Board = [Positions; 100];
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day14:Створити-колекції
+  let mut positions: &mut Board = &mut [[(0, '.'); 100]; 100];
+  let mut pcounts: &mut Counts = &mut [0; 100];
+  for c in 0..cols {
+      let mut i = 0;
+      for r in 0..rows {
+          if *grid.get(r, c).unwrap() != '.' {
+              positions[c][i] = (r, *grid.get(r, c).unwrap());
+              i += 1;
+          }
+      }
+      pcounts[c] = i;
+  }
+#+end_src
+
+Для відлагодження використовуємо функцію ~board~, яка повертає представлення дошки у вигляді матриці, яку
+можна роздрукувати.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Визначення
+  fn board(rows: usize, cols: usize, counts: &Counts, board: &Board) -> Grid<char> {
+      let mut grid = Grid::new(rows, cols);
+      grid.fill('.');
+      for c in 0..cols {
+          for i in 0..counts[c] {
+              ,*grid.get_mut(board[c][i].0, c).unwrap() = board[c][i].1;
+          }
+      }
+      grid
+  }
+#+end_src
+
+Протестуємо ~board~, тести написані =Copilot=.
+
+#+begin_src rust :noweb yes :noweb-ref day14:test:Визначення
+  #[test]
+  fn test_empty_board() {
+      let rows = 3;
+      let cols = 3;
+      let counts: Counts = [0; 100];
+      let positions: Board = [[(0, '.'); 100]; 100];
+
+      let result = board(rows, cols, &counts, &positions);
+
+      let expected = grid::grid![
+          ['.', '.', '.']
+          ['.', '.', '.']
+          ['.', '.', '.']
+      ];
+
+      assert_eq!(result, expected)
+  }
+
+  #[test]
+  fn test_only_blocks() {
+      let rows = 3;
+      let cols = 3;
+      let mut counts: Counts = [0; 100];
+      let mut positions: Board = [[(0, '.'); 100]; 100];
+      counts[0] = 1;
+      positions[0][0] = (0, '#');
+      counts[1] = 1;
+      positions[1][0] = (1, '#');
+      counts[2] = 1;
+      positions[2][0] = (2, '#');
+
+      let result = board(rows, cols, &counts, &positions);
+
+      let expected = grid::grid![
+          ['#', '.', '.']
+          ['.', '#', '.']
+          ['.', '.', '#']
+      ];
+
+      assert_eq!(result, expected)
+  }
+
+  #[test]
+  fn test_only_rounds() {
+      let rows = 3;
+      let cols = 3;
+      let mut counts: Counts = [0; 100];
+      let mut positions: Board = [[(0, '.'); 100]; 100];
+      counts[0] = 1;
+      positions[0][0] = (0, 'O');
+      counts[1] = 1;
+      positions[1][0] = (1, 'O');
+      counts[2] = 1;
+      positions[2][0] = (2, 'O');
+
+      let result = board(rows, cols, &counts, &positions);
+
+      let expected = grid::grid![
+          ['O', '.', '.']
+          ['.', 'O', '.']
+          ['.', '.', 'O']
+      ];
+
+      assert_eq!(result, expected)
+  }
+
+  #[test]
+  fn test_blocks_and_rounds() {
+      let rows = 3;
+      let cols = 3;
+      let mut counts: Counts = [0; 100];
+      let mut positions: Board = [[(0, '.'); 100]; 100];
+      counts[0] = 2;
+      positions[0][0] = (0, 'O');
+      positions[0][1] = (1, '#');
+      counts[1] = 2;
+      positions[1][0] = (0, '#');
+      positions[1][1] = (2, 'O');
+      counts[2] = 2;
+      positions[2][0] = (1, 'O');
+      positions[2][1] = (2, '#');
+
+      let result = board(rows, cols, &counts, &positions);
+
+      let expected = grid::grid![
+          ['O', '#', '.']
+          ['#', '.', 'O']
+          ['.', 'O', '#']
+      ];
+
+      assert_eq!(result, expected);
+  }
+
+  #[test]
+  fn test_complex_board() {
+      let rows = 4;
+      let cols = 4;
+      let mut counts: Counts = [0; 100];
+      let mut positions: Board = [[(0, '.'); 100]; 100];
+      counts[0] = 2;
+      positions[0][0] = (0, 'O');
+      positions[0][1] = (1, '#');
+      counts[1] = 3;
+      positions[1][0] = (1, '#');
+      positions[1][1] = (2, 'O');
+      positions[1][2] = (3, '#');
+      counts[2] = 1;
+      positions[2][0] = (1, 'O');
+      counts[3] = 2;
+      positions[3][0] = (2, '#');
+      positions[3][1] = (3, 'O');
+
+      let result = board(rows, cols, &counts, &positions);
+
+      let expected = grid::grid![
+          ['O', '.', '.', '.']
+          ['#', '#', 'O', '.']
+          ['.', 'O', '.', '#']
+          ['.', '#', '.', 'O']
+      ];
+
+      assert_eq!(result, expected);
+  }
+#+end_src
+
+Визначимо також окремо структуру "повернутих" камінців, яка буде використовуватись в циклі.
+
+Взагалі кількість рядків і стовпців може бути різною, і після кожного кроку їх треба міняти місцями. Тому
+в циклі використовуємо тимчастові значення ~rs~ та ~cs~ замість початкових ~rows~ і ~cols~, і будемо
+обмінювати їх після кожного кроку.
+
+Створимо проміжну структуру ~rotated~ і масив лічильників рядків ~rcounts~, в які будемо записувати нові
+координати круглих камінців. Тут ми використовуємо кількість рядків, оскільки вони стають стовпцями.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Створити-колекції
+  let (mut rs, mut cs) = (rows, cols);
+  let mut rcounts: &mut Counts = &mut [0; 100];
+  let mut rotated: &mut Board = &mut [[(0, '.'); 100]; 100];
+#+end_src
+
+* COMMENT Нахил дошки з колекціями
+:PROPERTIES:
+:ID:       0e020d1a-8ac6-4895-b504-cbd6b91b23d1
+:END:
+
+При нахилі ми будуємо новий перелік позицій камінців. Для оптимізації ми будемо "повертати" позицію.
+
+В якості оптимізації обчислюємо наступний рядок круглого камінця послідовно за допомогою /рядка зсуву/
+~i~. Цей рядок намагається вказувати на першу вільну позицію, куди може стати круглий камінець. З цього
+правила є два виключення:
+
+- спочатку цей рядок дорівнює ~0~, і коли наступний рядок камінця дорівнює ~0~, виходить, що рядок зсуву
+  показує на вже зайнятий рядок; в такому випадку рядок зсуву просто збільшується на ~1~, оскільки
+  виходить, що камінець вже на своїй позиції;
+- ненульовий рядок зсуву може вказувати на блокуючий камінець, але це неважливо, оскільки в такому
+  випадку наступний рядок зсуву обчислювається, як наступний рядок за найбільшим рядком блокуючого
+  камінця.
+
+Після розміщення нового камінця рядок зсуву у будь-якому разі просувається вперед.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Нахилити-дошку
+  for c in 0..cs {
+      let mut i = 0;
+      for r in 0..pcounts[c] {
+          let (r, s) = positions[c][r];
+          match s {
+              '#' => {
+                  <<day14:Обробити-блокуючий-камінець>>
+              },
+              'O' => {
+                  <<day14:Обробити-круглий-камінець>>
+              },
+              s => { panic!("Invalid symbol {}", s); }
+          }
+      }
+      pcounts[c] = 0;
+  }
+  (rs, cs) = (cs, rs);
+  (pcounts, rcounts) = (rcounts, pcounts);
+  (positions, rotated) = (rotated, positions);
+#+end_src
+
+Блокуючий камінець не змінює своєї позиції, але змінює рядок зсуву.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Обробити-блокуючий-камінець
+  let k = rows - 1 - r;
+  rotated[k][rcounts[k]] = (c, '#');
+  rcounts[k] += 1;
+  i = r + 1;
+#+end_src
+
+Круглий камінець зсувається в поточний рядок зсуву, який потім збільшується на ~1~.
+
+#+begin_src rust :noweb yes :noweb-ref day14:Обробити-круглий-камінець
+  let k = rows - 1 - i;
+  rotated[k][rcounts[k]] = (c, 'O');
+  rcounts[k] += 1;
+  i += 1;
+#+end_src
+
+* Крок нахилів
+
+Функція ~step~ перетворює завдану дошку, виконуючи чотири нахили у відповідних напрямках. Для
+ефективності змінюється вже існуюча дошка, а не створюється нова.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Визначення
+  fn step(grid: &mut Grid<char>) {
+      <<day14:Нахилити-на-північ>>
+      <<day14:Нахилити-на-захід>>
+      <<day14:Нахилити-на-південь>>
+      <<day14:Нахилити-на-схід>>
+  }
+#+end_src
+
+* Пошук цикла
+
+Згідно алгоритму маємо дві дошки, "повільну" (~board1~) та "швидку" (~board2~). В циклі для повільної
+дошки виконується один крок нахилу, а для швидкої --- два, до тих пір, поки дві дошки не співпадуть. Для
+простоти підраховуємо номери дошок (~n1~ і ~n2~ відповідно) і вважаємо довжиною циклу різницю між цими
+номерами. Хоча реально цикл може бути коротше і починатися не з початку, на великій відстані простіше
+використовувати "довгий" цикл, щоб зекономити час.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Знайти-цикл
+  let mut n1 = 0;
+  let mut n2 = 0;
+  let mut board1 = grid.clone();
+  let mut board2 = grid.clone();
+  loop {
+      step(&mut board1);
+      n1 += 1;
+      step(&mut board2);
+      step(&mut board2);
+      n2 += 2;
+      if board1 == board2 { break; }
+  }
+#+end_src
+
+* Обчислення номеру останньої позиції циклу
+
+Нехай ~n2~ --- номер швидкої дошки, а ~l = n2 - n1~ --- довжина цикла. В такому випадку, коли треба
+перебрати ~limit~ циклів, ми можемо відкинути ~limit - n2 - k*(n2-n1)~ "пустих" циклів. Щоб обчислити
+кількість "пустих" циклів ~k~, треба поділити ~limit-n2~ на ~n2-n1~. Потім ми можемо обчислити "позицію"
+~n~ як ~n2 + k*(n2-n1)~. Однак нас цікавить не тільки частка, а й решта від такого поділу, цю решту
+позначимо як ~m~.
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Знайти-цикл
+  let k = (limit - n2) / (n2 - n1);
+  let m = (limit - n2) % (n2 - n1);
+#+end_src
+
+* Обчислення останньої позиції
+
+Для простоти призначимо ~board2~ знову до ~grid~, щоб не переписувати [[id:1ced1a4e-9a90-4a3c-b0bc-43f8fac99114][обчислення навантаження]].
+
+#+begin_src rust :noweb yes :noweb-ref day14_2:Обчислити-останню-позицію
+  grid = board2;
+  for _ in 0..m {
+      step(&mut grid);
+  }
+#+end_src

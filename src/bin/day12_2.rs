@@ -138,6 +138,7 @@ fn solutions(memo: &mut Memo, chunks: &Vec<Chunk>, ichunk: usize, ispring: usize
 }
 #[test]
 fn test_solutions() {
+    let mut memo = Memo::new();
     assert_eq!(solutions(&mut memo, &vec![
         vec!['?', '?', '?']
     ], 0, 0, &vec![1, 1], 0), 1);
