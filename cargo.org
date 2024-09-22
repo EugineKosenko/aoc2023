@@ -48,3 +48,12 @@ Used in =day6= for high-precision computations.
   contracts = "*"
   all_asserts = "*"
 #+end_src
+
+* =strum=
+
+Використовується для перебору значень переліків.
+
+#+begin_src rust :noweb-ref aoc:Cargo:Залежності
+  strum = "*"
+  strum_macros = "*"
+#+end_src
