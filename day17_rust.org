@@ -358,7 +358,7 @@
 
 #+begin_src rust :noweb yes :noweb-ref day17:Визначення
   fn mincost(
-      board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: &mut usize, depth: usize, step: &mut usize
+      board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: usize, depth: usize, step: &mut usize
   ) -> Option<usize> {
       ,*step += 1;
       if *step % 10_000_000 == 0 { println!("{} {} {}", *step, limit, usize::MAX - depth); }
@@ -373,22 +373,22 @@
 Зробимо виклик для початкової позиції.
 
 #+begin_src rust :noweb yes :noweb-ref day17_1:Дії
-  let mut limit = usize::MAX;
   let mut step = 0;
-  let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, &mut limit, usize::MAX, &mut step)
-      .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, &mut limit, usize::MAX, &mut step));
+  let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, usize::MAX, usize::MAX, &mut step)
+      .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, usize::MAX, usize::MAX, &mut step));
 #+end_src
 
 Якщо позиція є кінцевою, обчислюємо і повертаємо вартість шляха. Для зручності визначимо синоними для
 кількості рядків (~rows~) і стовбців (~cols~), а також обрахуємо нову вартість шляха.
 
+Обчислена вартість шляха не може бути більше межі.
+
 #+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
   let (rows, cols) = (board.rows(), board.cols());
   let cost = cost + *board.get(pos.0, pos.1).unwrap();
   if pos == (rows - 1, cols - 1) {
-      ,*limit = cost.min(*limit);
-      println!("{} {} {:?}", limit, cost, path);
-      println!("{:#?}", show(rows, cols, &path));
+      println!("{} {}", limit, cost);
+      //println!("{:#?}", show(rows, cols, &path));
       return Some(cost);
   }
 #+end_src
@@ -438,7 +438,7 @@
 Якщо вартість шляха для нової позиції більше межі, відкидаємо напрямок.
 
 #+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
-  if cost + *board.get(r, c).unwrap() >= *limit { return None; }
+  if cost + *board.get(r, c).unwrap() >= limit { return None; }
 #+end_src
 
 Якщо нова позиція вже входить до шляху, напрямок також відкидається.
@@ -457,14 +457,14 @@
 з усіх. Під час перебору уточнюємо межу.
 
 #+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
-  // let mut limit = limit;
+  let mut limit = limit;
   variants.iter()
       .filter_map(|&(pos, dout, _)| {
           let rest = if dout == din { rest - 1 } else { 2 };
           let result = mincost(&board, &path, pos, rest, dout, cost, limit, depth - 1, step);
-          // if let Some(result) = result {
-          //     limit = limit.min(result);
-          // }
+          if let Some(result) = result {
+              limit = limit.min(result);
+          }
           result
       })
       .min()        

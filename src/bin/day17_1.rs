@@ -79,7 +79,7 @@ fn test_optimal() {
     assert_eq!(cost(&board, &opt), 102);
 }
 fn mincost(
-    board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: &mut usize, depth: usize, step: &mut usize
+    board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: usize, depth: usize, step: &mut usize
 ) -> Option<usize> {
     *step += 1;
     if *step % 10_000_000 == 0 { println!("{} {} {}", *step, limit, usize::MAX - depth); }
@@ -90,9 +90,8 @@ fn mincost(
     let (rows, cols) = (board.rows(), board.cols());
     let cost = cost + *board.get(pos.0, pos.1).unwrap();
     if pos == (rows - 1, cols - 1) {
-        *limit = cost.min(*limit);
-        println!("{} {} {:?}", limit, cost, path);
-        println!("{:#?}", show(rows, cols, &path));
+        println!("{} {}", limit, cost);
+        //println!("{:#?}", show(rows, cols, &path));
         return Some(cost);
     }
     let mut path = path.clone();
@@ -108,20 +107,20 @@ fn mincost(
                 Dir::West => { c = if c == 0 { return None; } else { c - 1 }; }
             };
             if r == rows || c == cols { return None; }
-            if cost + *board.get(r, c).unwrap() >= *limit { return None; }
+            if cost + *board.get(r, c).unwrap() >= limit { return None; }
             if path.contains(&(r, c)) { return None; }
             Some(((r, c), dout, *board.get(r, c).unwrap()))
         })
         .collect::<Vec<_>>();
     variants.sort_by_key(|v| (distance(&v.0, &(rows - 1, cols - 1)), v.2));
-    // let mut limit = limit;
+    let mut limit = limit;
     variants.iter()
         .filter_map(|&(pos, dout, _)| {
             let rest = if dout == din { rest - 1 } else { 2 };
             let result = mincost(&board, &path, pos, rest, dout, cost, limit, depth - 1, step);
-            // if let Some(result) = result {
-            //     limit = limit.min(result);
-            // }
+            if let Some(result) = result {
+                limit = limit.min(result);
+            }
             result
         })
         .min()        
@@ -153,9 +152,8 @@ fn main() {
         };
         paths.insert(i, path);
     }
-    let mut limit = usize::MAX;
     let mut step = 0;
-    let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, &mut limit, usize::MAX, &mut step)
-        .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, &mut limit, usize::MAX, &mut step));
+    let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, usize::MAX, usize::MAX, &mut step)
+        .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, usize::MAX, usize::MAX, &mut step));
     println!("{:?}", result);
 }
