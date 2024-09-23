@@ -2,7 +2,6 @@ use std::{fs, env, io::{self, BufRead}};
 use grid::Grid;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use std::collections::BTreeMap;
 use std::cmp;
 
 type Board = Grid<usize>;
@@ -79,6 +78,54 @@ fn test_optimal() {
     println!("{:#?}", show(13, 13, &opt));
     assert_eq!(cost(&board, &opt), 102);
 }
+fn mincost(
+    board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: &mut usize, depth: usize, step: &mut usize
+) -> Option<usize> {
+    *step += 1;
+    if *step % 10_000_000 == 0 { println!("{} {} {}", *step, limit, usize::MAX - depth); }
+    if depth == 0 {
+        //println!("{} {:?}", cost, path);
+        return Some(cost);
+    }
+    let (rows, cols) = (board.rows(), board.cols());
+    let cost = cost + *board.get(pos.0, pos.1).unwrap();
+    if pos == (rows - 1, cols - 1) {
+        *limit = cost.min(*limit);
+        println!("{} {} {:?}", limit, cost, path);
+        println!("{:#?}", show(rows, cols, &path));
+        return Some(cost);
+    }
+    let mut path = path.clone();
+    path.push(pos);
+    let mut variants = Dir::iter()
+        .filter_map(|dout| {
+            if rest == 0 && dout == din { return None; }
+            let (mut r, mut c) = pos;
+            match dout {
+                Dir::North => { r = if r == 0 { return None; } else { r - 1 }; },
+                Dir::East => { c += 1; },
+                Dir::South => { r += 1; },
+                Dir::West => { c = if c == 0 { return None; } else { c - 1 }; }
+            };
+            if r == rows || c == cols { return None; }
+            if cost + *board.get(r, c).unwrap() >= *limit { return None; }
+            if path.contains(&(r, c)) { return None; }
+            Some(((r, c), dout, *board.get(r, c).unwrap()))
+        })
+        .collect::<Vec<_>>();
+    variants.sort_by_key(|v| (distance(&v.0, &(rows - 1, cols - 1)), v.2));
+    // let mut limit = limit;
+    variants.iter()
+        .filter_map(|&(pos, dout, _)| {
+            let rest = if dout == din { rest - 1 } else { 2 };
+            let result = mincost(&board, &path, pos, rest, dout, cost, limit, depth - 1, step);
+            // if let Some(result) = result {
+            //     limit = limit.min(result);
+            // }
+            result
+        })
+        .min()        
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -95,7 +142,6 @@ fn main() {
     }
     let (rows, cols) = (board.rows(), board.cols());
     println!("{:#?}", board);
-    let result = 0;
     let mut paths: Paths = Paths::with_capacity(1000);
     
     for path in vec![
@@ -107,44 +153,9 @@ fn main() {
         };
         paths.insert(i, path);
     }
-    println!("{:?}", paths);
     let mut limit = usize::MAX;
-    let mut k = 0;
-    while let Some((path, len, din, w)) = paths.pop() {
-        k += 1;
-        if k % 100_000 == 0 {
-            println!("{} {}", k, paths.len());
-            println!("{:?} {} {:?}, {}", path.clone(), len, din, w);
-        }
-        let &pos = path.last().unwrap();
-        if pos == (rows - 1, cols - 1) {
-            limit = limit.min(w);
-            println!("{} {:?}", limit, path);
-            println!("{:#?}", show(rows, cols, &path));
-            continue;
-        }
-        if w >= limit { continue; }
-        for dout in Dir::iter() {
-            if len == 3 && dout == din { continue; }
-            let (mut r, mut c) = pos;
-            match dout {
-                Dir::North => { r = if r == 0 { rows } else { r - 1 }; },
-                Dir::East => { c += 1; },
-                Dir::South => { r += 1; },
-                Dir::West => { c = if c == 0 { cols } else { c - 1 }; }
-            };
-            if r == rows || c == cols { continue; }
-            if w + board.get(r, c).unwrap() >= limit { continue; }
-            if path.contains(&(r, c)) { continue; }
-            let mut path = path.clone();
-            path.push((r, c));
-            let path = (path, if dout == din { len + 1 } else { 1 }, dout, w + board.get(r, c).unwrap());
-            let i = match paths.binary_search_by_key(&weight(&board, &path), |p| weight(&board, p)) {
-                Err(i) => i,
-                Ok(i) => i + 1
-            };
-            paths.insert(i, path);
-        }
-    }
-    println!("{}", result);
+    let mut step = 0;
+    let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, &mut limit, usize::MAX, &mut step)
+        .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, &mut limit, usize::MAX, &mut step));
+    println!("{:?}", result);
 }

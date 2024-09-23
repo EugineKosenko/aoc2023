@@ -12,9 +12,8 @@
 
   fn main() {
       <<day17:Прочитати-дані>>
-      let result = 0;
       <<day17_1:Дії>>
-      println!("{}", result);
+      println!("{:?}", result);
   }
 #+end_src
 
@@ -89,10 +88,6 @@
 Перелік шляхів будемо зберігати у звичайному векторі (~Vec~), однак, впорядковувати їх, розглядаючи
 спочатку шляхи, які найбільш вірогідно виявляться ефективними.
 
-#+begin_src rust :noweb-ref day17:Декларації
-  use std::collections::BTreeMap;
-#+end_src
-
 #+begin_src rust :noweb-ref day17:Визначення
   type Path = (Vec<Pos>, usize, Dir, usize);
   type Paths = Vec<Path>;
@@ -155,7 +150,6 @@
       };
       paths.insert(i, path);
   }
-  println!("{:?}", paths);
 #+end_src
 
 ** Відлагодження
@@ -186,7 +180,7 @@
   }
 #+end_src
 
-* Пощук шляхів
+* COMMENT Пощук шляхів
 
 Ми шукаємо оптимальний шлях, тому для відсічки задамо /межу/ (=limit=) відсічки. /Завершеним/
 (=complete=) шляхом є шлях, який закінчується в нижньому правому куті дошки, інші шляхи вважаються
@@ -345,3 +339,133 @@
   }
 #+end_src
 
+* Рекурсивний обхід
+
+Пряма реалізація нагадує рекурсивний обхід варіантів з використанням штучного "стеку" у вигляді переліку
+шляхів. Можливо, що більшість часу відбирає перетворення структур, в той час, як зберігання структур на
+стеку може значно пришвидшити обробку.
+
+Нехай рекурсивна функція ~mincost~ приймає шлях ~path~ та необхідні для ефективності характеристики:
+дошку ~board~, поточну позицію ~pos~, кількість позицій до завершення ланки ~rest~, поточний напрямок
+~din~, вартість шляха ~cost~ та поточний поріг ~limit~. Ця функція повертає мінімальну вартість для
+продовження шляху в цій точці, або нічого, якщо немає ефективних шляхів з цієї позиції.
+
+Для відлагодження додамо також параметр ~depth~. Коли він дорівнює ~0~, просто повертаємо поточне
+значення ~cost~.
+
+Для відлагодження введемо параметр ~step~, який буде підраховувати загальну кількість опрацьованих шляхів
+і показувати прогрес.
+
+#+begin_src rust :noweb yes :noweb-ref day17:Визначення
+  fn mincost(
+      board: &Board, path: &Vec<Pos>, pos: Pos, rest: usize, din: Dir, cost: usize, limit: &mut usize, depth: usize, step: &mut usize
+  ) -> Option<usize> {
+      ,*step += 1;
+      if *step % 10_000_000 == 0 { println!("{} {} {}", *step, limit, usize::MAX - depth); }
+      if depth == 0 {
+          //println!("{} {:?}", cost, path);
+          return Some(cost);
+      }
+      <<day17:mincost:Дії>>
+  }
+#+end_src
+
+Зробимо виклик для початкової позиції.
+
+#+begin_src rust :noweb yes :noweb-ref day17_1:Дії
+  let mut limit = usize::MAX;
+  let mut step = 0;
+  let result = mincost(&board, &vec![(0, 0)], (0, 1), 1, Dir::East, 0, &mut limit, usize::MAX, &mut step)
+      .min(mincost(&board, &vec![(0, 0)], (1, 0), 1, Dir::South, 0, &mut limit, usize::MAX, &mut step));
+#+end_src
+
+Якщо позиція є кінцевою, обчислюємо і повертаємо вартість шляха. Для зручності визначимо синоними для
+кількості рядків (~rows~) і стовбців (~cols~), а також обрахуємо нову вартість шляха.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
+  let (rows, cols) = (board.rows(), board.cols());
+  let cost = cost + *board.get(pos.0, pos.1).unwrap();
+  if pos == (rows - 1, cols - 1) {
+      ,*limit = cost.min(*limit);
+      println!("{} {} {:?}", limit, cost, path);
+      println!("{:#?}", show(rows, cols, &path));
+      return Some(cost);
+  }
+#+end_src
+
+Утворимо новий шлях, додавши до нього поточну позицію.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
+  let mut path = path.clone();
+  path.push(pos);
+#+end_src
+
+Перебираємо усі напрямки і збираємо в перелік набори координат нових позицій, їх напрямки і вартості.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
+  let mut variants = Dir::iter()
+      .filter_map(|dout| {
+          <<day17:mincost:Обробити-напрямок>>
+          Some(((r, c), dout, *board.get(r, c).unwrap()))
+      })
+      .collect::<Vec<_>>();
+#+end_src
+
+Відкинемо той саме напрямок, якщо поточний залишок дорівнює нулю.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
+  if rest == 0 && dout == din { return None; }
+#+end_src
+
+Обчислюємо нову позицію.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
+  let (mut r, mut c) = pos;
+  match dout {
+      Dir::North => { r = if r == 0 { return None; } else { r - 1 }; },
+      Dir::East => { c += 1; },
+      Dir::South => { r += 1; },
+      Dir::West => { c = if c == 0 { return None; } else { c - 1 }; }
+  };
+#+end_src
+
+Якщо нова позиція виходить за межі дошки, відкидаємо напрямок.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
+  if r == rows || c == cols { return None; }
+#+end_src
+
+Якщо вартість шляха для нової позиції більше межі, відкидаємо напрямок.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
+  if cost + *board.get(r, c).unwrap() >= *limit { return None; }
+#+end_src
+
+Якщо нова позиція вже входить до шляху, напрямок також відкидається.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Обробити-напрямок
+  if path.contains(&(r, c)) { return None; }
+#+end_src
+
+Відсортуємо перелік варіантів за вагою, тобто спочатку за відстанню від кінцевої точки, а потім за вартістю.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
+  variants.sort_by_key(|v| (distance(&v.0, &(rows - 1, cols - 1)), v.2));
+#+end_src
+
+Для кожного варіанта обчислимо рекурсивно мінімальну вартість шляха і потім повернемо мінімальну вартість
+з усіх. Під час перебору уточнюємо межу.
+
+#+begin_src rust :noweb yes :noweb-ref day17:mincost:Дії
+  // let mut limit = limit;
+  variants.iter()
+      .filter_map(|&(pos, dout, _)| {
+          let rest = if dout == din { rest - 1 } else { 2 };
+          let result = mincost(&board, &path, pos, rest, dout, cost, limit, depth - 1, step);
+          // if let Some(result) = result {
+          //     limit = limit.min(result);
+          // }
+          result
+      })
+      .min()        
+#+end_src
