@@ -3,18 +3,18 @@ use grid::Grid;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use std::cmp;
+use std::collections::HashMap;
 
 type Board = Grid<usize>;
 type Pos = (usize, usize);
-#[derive(EnumIter, PartialEq, Clone, Copy, Debug)]
+#[derive(EnumIter, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 enum Dir { North, East, South, West }
 type Path = (Vec<Pos>, usize, Dir, usize);
 type Paths = Vec<Path>;
-type Weight = (usize, cmp::Reverse<usize>, cmp::Reverse<usize>);
+type Weight = (cmp::Reverse<usize>, cmp::Reverse<usize>);
 
 fn weight(board: &Board, path: &Path) -> Weight {
-    (path.0.len(),
-     cmp::Reverse(distance(path.0.last().unwrap(), &(board.rows() - 1, board.cols() - 1))),
+    (cmp::Reverse(distance(path.0.last().unwrap(), &(board.rows() - 1, board.cols() - 1))),
      cmp::Reverse(path.3))
 }
 fn distance(p1: &Pos, p2: &Pos) -> usize {
@@ -41,6 +41,18 @@ fn show(rows: usize, cols: usize, path: &Vec<Pos>) -> Grid<char> {
             };
     }
     result
+}
+#[derive(PartialEq, Eq, Hash)]
+struct Key(Pos, Dir, usize);
+
+type Limits = HashMap<Key, usize>;
+fn dirs(d: Dir) -> [Dir; 3] {
+    match d {
+        Dir::North => [Dir::North, Dir::East, Dir::West],
+        Dir::East => [Dir::North, Dir::East, Dir::South],
+        Dir::South => [Dir::East, Dir::South, Dir::West],
+        Dir::West => [Dir::North, Dir::South, Dir::West]
+    }
 }
 fn read_board(name: &str) -> Board {
     let file = fs::File::open(name).unwrap();
@@ -97,17 +109,21 @@ fn main() {
     let mut paths: Paths = Paths::with_capacity(1000);
     
     for path in vec![
-        (vec![(0, 0), (0, 1)], 2, Dir::East, *board.get(0, 1).unwrap()),
-        (vec![(0, 0), (1, 0)], 2, Dir::South, *board.get(1, 0).unwrap())
+        (vec![(0, 0), (0, 1)], 1, Dir::East, *board.get(0, 1).unwrap()),
+        (vec![(0, 0), (1, 0)], 1, Dir::South, *board.get(1, 0).unwrap())
     ] {
-        let Err(i) = paths.binary_search_by_key(&weight(&board, &path), |p| { weight(&board, p) }) else {
-            panic!("Path duplicate");
+        let i = match paths.binary_search_by_key(&weight(&board, &path), |p| { weight(&board, p) }) {
+            Err(i) => i,
+            Ok(i) => i + 1
         };
         paths.insert(i, path);
     }
+    let mut limits = Limits::new();
+    limits.insert(Key((0, 1), Dir::East, 2), *board.get(0, 1).unwrap());
+    limits.insert(Key((1, 0), Dir::East, 2), *board.get(1, 0).unwrap());
     let mut limit = usize::MAX;
     let mut k = 0;
-    while let Some((path, len, din, w)) = paths.pop() {
+    while let Some((path, rest, din, cost)) = paths.pop() {
         k += 1;
         if k % 1_000_000 == 0 {
             println!("{} {} {}", k, limit, paths.len());
@@ -115,27 +131,32 @@ fn main() {
         }
         let &pos = path.last().unwrap();
         if pos == (rows - 1, cols - 1) {
-            limit = limit.min(w);
-            println!("{} {:?}", limit, path);
-            println!("{:#?}", show(rows, cols, &path));
+            limit = limit.min(cost);
+            println!("{}", limit);
+            // println!("{:#?}", show(rows, cols, &path));
             continue;
         }
-        if w >= limit { continue; }
-        for dout in Dir::iter() {
-            if len == 3 && dout == din { continue; }
+        for dout in dirs(din) {
+            if rest == 0 && dout == din { continue; }
             let (mut r, mut c) = pos;
             match dout {
-                Dir::North => { r = if r == 0 { rows } else { r - 1 }; },
-                Dir::East => { c += 1; },
-                Dir::South => { r += 1; },
-                Dir::West => { c = if c == 0 { cols } else { c - 1 }; }
+                Dir::North => { r = if r == 0 { continue; } else { r - 1 }; },
+                Dir::East => { c = if c == cols - 1 { continue; } else { c + 1 }; },
+                Dir::South => { r = if r == rows - 1 { continue; } else { r + 1 }; },
+                Dir::West => { c = if c == 0 { continue; } else { c - 1 }; }
             };
-            if r == rows || c == cols { continue; }
-            if w + board.get(r, c).unwrap() >= limit { continue; }
-            if path.contains(&(r, c)) { continue; }
+            if cost + board.get(r, c).unwrap() >= limit { continue; }
+            let rest = if dout == din { rest - 1 } else { 2 };
+            let key = Key((r, c), dout, rest);
+            if cost + board.get(r, c).unwrap() >= *limits.get(&key).unwrap_or(&usize::MAX) {
+                continue;
+            } else {
+                limits.insert(key, cost + board.get(r, c).unwrap());
+            }
+            // if path.contains(&(r, c)) { continue; }
             let mut path = path.clone();
             path.push((r, c));
-            let path = (path, if dout == din { len + 1 } else { 1 }, dout, w + board.get(r, c).unwrap());
+            let path = (path, rest, dout, cost + board.get(r, c).unwrap());
             let i = match paths.binary_search_by_key(&weight(&board, &path), |p| weight(&board, p)) {
                 Err(i) => i,
                 Ok(i) => i + 1
