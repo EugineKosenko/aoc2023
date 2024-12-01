@@ -1,0 +1,192 @@
+#+title: Adventure of Code, 2023, день 18, =Rust=
+
+* Частина 1
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day18_1.rs
+  <<day18:Декларації>>
+
+  <<day18:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day18:Прочитати-дані>>
+      <<day18_1:Дії>>
+      eprintln!("{:?}", result);
+  }
+#+end_src
+
+* Читання даних
+
+#+begin_src rust :noweb-ref day18:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day18:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let lines = io::BufReader::new(file)
+      .lines().map(|l| l.unwrap());
+#+end_src
+
+* Створення контуру
+
+Рух може відбувалися у будь-якому напрямку, і координати точок контуру можуть бути довільними. Тому
+спочатку зберемо усі точки контуру в один вектор.
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  let (mut row, mut col) = (0, 0);
+  let mut circuit = vec![];
+#+end_src
+
+Для кожного рядка визначаємо напрямок і довжину, після чого рухаємось у завданому напрямку на завдану
+довжину.
+
+#+begin_src rust :noweb yes :noweb-ref day18_1:Дії
+  for line in lines {
+      let mut items = line.split_whitespace();
+      let dir = items.next().unwrap().chars().next().unwrap();
+      let dist = items.next().unwrap().parse::<usize>().unwrap();
+      for _ in 0..dist {
+          match dir {
+              'U' => { row -= 1; },
+              'R' => { col += 1; },
+              'D' => { row += 1; },
+              'L' => { col -= 1; },
+              _ => panic!("Invalid dir")
+          };
+          circuit.push((row, col));
+      }
+  }
+#+end_src
+
+Нормалізуємо координати, для цього знайдемо найменші і найбільші значення для кожної координати.
+
+#+begin_src rust :noweb yes :noweb-ref day18_1:Дії
+  let top = circuit.iter().map(|p| p.0).min().unwrap();
+  let bottom = circuit.iter().map(|p| p.0).max().unwrap();
+  let left = circuit.iter().map(|p| p.1).min().unwrap();
+  let right = circuit.iter().map(|p| p.1).max().unwrap();
+#+end_src
+
+* Створення дошки
+
+Створимо дошку.
+
+#+begin_src rust :noweb-ref day18:Декларації
+  use grid::Grid;
+#+end_src
+
+#+begin_src rust :noweb-ref day18:Визначення
+  type Board = Grid<char>;
+#+end_src
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  let mut board = Board::init((bottom - top + 1) as usize, (right - left + 1) as usize, '.');
+#+end_src
+
+Відмітимо точки контуру.
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  for (row, col) in &circuit {
+      ,*board.get_mut(row - top, col - left).unwrap() = '#';
+  }
+#+end_src
+
+* Підрахунок внутрішніх точок
+
+Для підрахунку перебираємо усі точки в площині контуру і визначаємо внутрішні точки. При цьому не
+враховуємо точки самого контуру. Не враховуємо також точки на кордоні майданчику, оскільки вони або
+є точками контуру, або не знаходяться в середині контуру.
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  for row in (top+1)..bottom {
+      eprintln!("Row {}", row);
+      for col in (left+1)..right {
+          if !circuit.contains(&(row, col)) {
+              if is_internal(right, &(row, col), &circuit) {
+                  result += 1;
+                  ,*board.get_mut(row - top, col - left).unwrap() = '#';
+              } else {
+                  //*board.get_mut(row - top, col - left).unwrap() = '0';
+              }
+          }
+      }
+  }
+#+end_src
+
+Для визначення внутрішніх точок використовуємо трасування при русі вправо. Для цього підраховуємо
+кількість перетинів, і якщо вона парна, то точка зовнішня, інакше внутрішня.
+
+#+begin_src rust :noweb yes :noweb-ref day18:Визначення
+  fn is_internal(right: isize, (row, col): &(isize, isize), circuit: &Vec<(isize, isize)>) -> bool {
+      let mut crosses_count = 0;
+      <<day18:is-internal:Дії>>
+      crosses_count % 2 == 1
+  }
+#+end_src
+
+Перебираємо усі точки справа від поточної, які відрізняються від точок контуру.
+
+#+begin_src rust :noweb yes :noweb-ref day18:is-internal:Дії
+  let mut i = col + 1;
+  while i <= right {
+      if !circuit.contains(&(*row, i)) {
+          i += 1;
+          continue;
+      }
+      <<day18:is-internal:Обробити-лінію-перетину>>
+      i += 1;
+  }
+#+end_src
+
+Знайдемо кінець лінії перетину. Якщо лінія перетину закінчується раніше кордону майданчика, повернемося
+на один крок назад.
+
+#+begin_src rust :noweb-ref day18:is-internal:Обробити-лінію-перетину
+  let mut j = i + 1;
+  while j <= right && circuit.contains(&(*row, j)) { j += 1; }
+  if !circuit.contains(&(*row, j)) { j -= 1; }
+#+end_src
+
+Перетин визначається тим, що на початку і на кінці лінії перетину вона повертається в різні сторони.
+
+#+begin_src rust :noweb-ref day18:is-internal:Обробити-лінію-перетину
+  if circuit.contains(&(row - 1, i)) && circuit.contains(&(row + 1, j)) ||
+      circuit.contains(&(row + 1, i)) && circuit.contains(&(row - 1, j)) {
+          crosses_count += 1;
+      }
+#+end_src
+
+Перейдемо до останньої точки лінії перетину.
+
+#+begin_src rust :noweb-ref day18:is-internal:Обробити-лінію-перетину
+  i = j + 1;
+#+end_src
+
+Додамо також до результату точки самого контуру.
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  result += circuit.len();
+#+end_src
+
+* COMMENT Відлагодження
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  //println!("{:?}", circuit);
+  eprintln!("({} {}) ({} {})", left, top, right, bottom);
+#+end_src
+
+** Візуалізація
+
+Покажемо дошку
+
+#+begin_src rust :noweb-ref day18_1:Дії
+  println!("<pre>");
+  for r in board.iter_rows() {
+      for c in r {
+          print!("{}", *c);
+      }
+      println!("<br />");
+  }
+  println!("</pre>");
+#+end_src

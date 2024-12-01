@@ -16,5 +16,4 @@ grid = "*"
 rug = { version = "*", features = ["float"] }
 contracts = "*"
 all_asserts = "*"
-strum = "*"
-strum_macros = "*"
+enum-iterator = "*"

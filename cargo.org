@@ -49,11 +49,22 @@ Used in =day6= for high-precision computations.
   all_asserts = "*"
 #+end_src
 
-* =strum=
+* COMMENT =strum=
 
-Використовується для перебору значень переліків.
+Використовується для перебору значень переліків. Замінено на [[id:d2cc3b18-d649-475e-a20e-b45ff9918517][=enum-iterator=]].
 
 #+begin_src rust :noweb-ref aoc:Cargo:Залежності
   strum = "*"
   strum_macros = "*"
+#+end_src
+
+* =enum-iterator=
+:PROPERTIES:
+:ID:       d2cc3b18-d649-475e-a20e-b45ff9918517
+:END:
+
+Використовується для перебору значень переліків.
+
+#+begin_src rust :noweb-ref aoc:Cargo:Залежності
+  enum-iterator = "*"
 #+end_src
