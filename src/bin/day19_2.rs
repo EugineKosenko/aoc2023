@@ -7,27 +7,7 @@ type Program = BTreeMap<String, Flow>;
 struct Flow(Vec<Rule>);
 
 impl Flow {
-    fn next(&self, part: &Part) -> String {
-        for rule in &self.0 {
-            if let Some(flow) = rule.switch(part) {
-                return flow;
-            }
-        }
-        unreachable!();
-    }
-    fn size(&self, set: Set, program: &Program) -> usize {
-        let mut result = 0;
-        let mut set = set;
-        for rule in &self.0 {
-            let (size, rest) = rule.filter(set, program);
-            result += size;
-            match rest {
-                None => { break; },
-                Some(rest) => { set = rest; }
-            }
-        }
-        result
-    }
+    
 }
 impl str::FromStr for Flow {
     type Err = String;
@@ -46,36 +26,7 @@ struct Rule {
 }
 
 impl Rule {
-    fn switch(&self, part: &Part) -> Option<String> {
-        match &self.cond {
-            None => Some(self.flow.clone()),
-            Some(cond) => {
-                if match cond.sign {
-                    '<' => *part.get(&cond.cat).unwrap() < cond.value,
-                    '>' => *part.get(&cond.cat).unwrap() > cond.value,
-                    sign => panic!("Unexpected sign {}", sign)
-                } { Some(self.flow.clone()) } else { None }
-            }
-        }
-    }
-    fn filter(&self, set: Set, program: &Program) -> (usize, Option<Set>) {
-        let (set, rest) = match &self.cond {
-            None => (Some(set), None),
-            Some(cond) => set.split(&cond)
-        };
-        let size = match self.flow.as_str() {
-            "R" => 0,
-            "A" => match set {
-                None => 0,
-                Some(set) => set.size()
-            },
-            flow => match set {
-                None => 0,
-                Some(set) => program.get(flow).unwrap().size(set, program)
-            }
-        };
-        (size, rest)
-    }
+    
 }
 impl str::FromStr for Rule {
     type Err = String;
@@ -103,7 +54,41 @@ struct Cond {
     sign: char,
     value: usize
 }
-type Part = BTreeMap<String, usize>;
+impl Flow {
+    fn size(&self, set: Set, program: &Program) -> usize {
+        let mut result = 0;
+        let mut set = set;
+        for rule in &self.0 {
+            let (size, rest) = rule.filter(set, program);
+            result += size;
+            match rest {
+                None => { break; },
+                Some(rest) => { set = rest; }
+            }
+        }
+        result
+    }
+}
+impl Rule {
+    fn filter(&self, set: Set, program: &Program) -> (usize, Option<Set>) {
+        let (set, rest) = match &self.cond {
+            None => (Some(set), None),
+            Some(cond) => set.split(cond)
+        };
+        let size = match self.flow.as_str() {
+            "R" => 0,
+            "A" => match set {
+                None => 0,
+                Some(set) => set.size()
+            },
+            flow => match set {
+                None => 0,
+                Some(set) => program.get(flow).unwrap().size(set, program)
+            }
+        };
+        (size, rest)
+    }
+}
 #[derive(Debug, Clone)]
 struct Set(BTreeMap<String, Range>);
 
@@ -154,13 +139,12 @@ impl Range {
 }
 
 fn main() {
-    let mut result = 0;
     let args: Vec<String> = env::args().collect();
     let file = fs::File::open(&args[1]).unwrap();
     let mut lines = io::BufReader::new(file)
         .lines().map(|line| line.unwrap());
     let mut program = Program::new();
-    while let Some(line) = lines.next() {
+    for line in lines.by_ref() {
         if line.is_empty() { break; }
         lazy_static::lazy_static! {
             static ref RE_FLOW: regex::Regex = regex::Regex::new(r"^(?P<name>[a-z]+)\{(?P<flow>.+)\}$").unwrap();
@@ -176,6 +160,6 @@ fn main() {
         ("a".to_string(), Range(1, 4000)),
         ("s".to_string(), Range(1, 4000))
     ]));
-    result = program.get("in").unwrap().size(set, &program);
+    let result = program.get("in").unwrap().size(set, &program);
     eprintln!("{:?}", result);
 }

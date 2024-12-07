@@ -31,7 +31,7 @@ impl FromStr for NumSet {
             let cps = RE_ITEM.captures(&line).unwrap();
             let item = cps.name("item").unwrap().as_str().parse::<usize>().unwrap();
             result.insert(item);
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
         }
         Ok(result)
     }

@@ -1,6 +1,6 @@
 use std::{fs, env, io::{self, BufRead}};
 
-fn reduce(src: &Vec<isize>) -> Vec<isize> {
+fn reduce(src: &[isize]) -> Vec<isize> {
     let mut result = Vec::new();
     for i in 0..src.len()-1 {
         result.push(src[i+1]-src[i]);
@@ -14,11 +14,11 @@ fn test_reduce() {
     assert_eq!(reduce(&vec![0, 2, 4, 6]), vec![2, 2, 2]);
     assert_eq!(reduce(&vec![2, 2, 2]), vec![0, 0]);
 }
-fn extend(src: &Vec<isize>) -> isize {
+fn extend(src: &[isize]) -> isize {
     if src.iter().all(|v| *v == 0) {
         0
     } else {
-        src.last().unwrap() + extend(&reduce(&src))
+        src.last().unwrap() + extend(&reduce(src))
     }
 }
 #[test]

@@ -9,6 +9,7 @@
   <<day2:Декларації>>
 
   <<day2:Визначення>>
+  <<day2_1:Визначення>>
     
   fn main() {
       <<day2_1:Встановити-ліміт>>
@@ -39,7 +40,7 @@
       let mut line = line.unwrap();
       let mut game_is_proper = true;
       <<day2_1:Обробити-рядок>>
-      if game_is_proper { s = s + game_id }
+      if game_is_proper { s += game_id }
   }
   println!("{}", s);
 #+end_src
@@ -52,7 +53,7 @@
   }
   let cps = RE_GAME.captures(&line).unwrap();
   let game_id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
-  line = cps.name("rest").unwrap().as_str().to_owned();
+  line = cps.name("rest").unwrap().as_str().to_string();
 #+end_src
 
 В описі гри перелічимо усі /раунди/.
@@ -64,7 +65,7 @@
   while game_is_proper && !line.is_empty() {
       let cps = RE_ROUND.captures(&line).unwrap();
       let round = cps.name("round").unwrap().as_str().to_owned();
-      line = cps.name("rest").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_string();
       <<day2_1:Обробити-раунд>>
   }
 #+end_src
@@ -84,6 +85,12 @@
   }
 #+end_src
 
+#+begin_src rust :noweb yes :noweb-ref day2_1:Визначення
+  impl Round {
+      <<day2_1:Round:Визначення>>
+  }
+#+end_src
+
 Коректний раунд має бути таким, щоб не виходити за межі, надані у завданні. Визначимо ці межі як
 спеціальний раунд ~limit~.
 
@@ -98,9 +105,9 @@
 Визначимо функцію ~is_fit~, яка перевіряє, що раунд вкладається у задані межі. Це схоже на перевірку
 часткового порядку, але вимагає специфічних перевірок.
 
-#+begin_src rust :noweb yes :noweb-ref day2:Round:Визначення
+#+begin_src rust :noweb yes :noweb-ref day2_1:Round:Визначення
   fn is_fit(&self, limit: &Self) -> bool {
-      return self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue;
+      self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue
   }
 #+end_src
 
@@ -133,7 +140,7 @@
       let cps = RE_ITEM.captures(&line).unwrap();
       let count = cps.name("count").unwrap().as_str().parse::<usize>().unwrap();
       let color = cps.name("color").unwrap().as_str().to_owned();
-      line = cps.name("rest").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_string();
       <<day2:FromStr:from_str:Обробити-колір>>
   }
 #+end_src
@@ -180,7 +187,7 @@
   for line in lines {
       let mut line = line.unwrap();
       <<day2_2:Обробити-рядок>>
-      s = s + power;
+      s += power;
   }
   println!("{}", s);
 #+end_src
@@ -192,7 +199,7 @@
       static ref RE_GAME: regex::Regex = regex::Regex::new(r"^Game (?P<id>\d+): (?P<rest>.+)$").unwrap();
   }
   let cps = RE_GAME.captures(&line).unwrap();
-  line = cps.name("rest").unwrap().as_str().to_owned();
+  line = cps.name("rest").unwrap().as_str().to_string();
 #+end_src
 
 Визначимо результуючий раунд. Перелічимо усі раунди, і для кожного раунду змінимо результуючий.
@@ -205,7 +212,7 @@
   while !line.is_empty() {
       let cps = RE_ROUND.captures(&line).unwrap();
       let round = cps.name("round").unwrap().as_str().to_owned();
-      line = cps.name("rest").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_string();
       <<day2_2:Обробити-раунд>>
   }
   let power = result.red * result.green * result.blue;

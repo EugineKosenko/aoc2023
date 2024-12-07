@@ -31,7 +31,7 @@ impl FromStr for NumSet {
             let cps = RE_ITEM.captures(&line).unwrap();
             let item = cps.name("item").unwrap().as_str().parse::<usize>().unwrap();
             result.insert(item);
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
         }
         Ok(result)
     }
@@ -43,8 +43,7 @@ fn main() {
     let file = fs::File::open(&args[1]).unwrap();
     let lines = io::BufReader::new(file).lines().collect::<Vec<_>>();
     let mut scores = vec![1; lines.len()];
-    let mut i = 0;
-    for line in lines {
+    for (i, line) in lines.into_iter().enumerate() {
         let line = line.unwrap();
         lazy_static::lazy_static! {
             static ref RE_CARD: regex::Regex = regex::Regex::new(r"^Card( )+(?P<id>\d+):( )+(?P<win>[\d ]+) \|( )+(?P<all>[\d ]+)$").unwrap();
@@ -58,7 +57,6 @@ fn main() {
         for j in (i+1)..(scores.len().min(i+count+1)) {
             scores[j] += scores[i];
         }
-        i += 1;
     }
     println!("{}", result);
 }

@@ -129,7 +129,7 @@
       let cps = RE_ITEM.captures(&line).unwrap();
       let item = cps.name("item").unwrap().as_str().parse::<usize>().unwrap();
       result.insert(item);
-      line = cps.name("rest").unwrap().as_str().to_owned();
+      line = cps.name("rest").unwrap().as_str().to_string();
   }
 #+end_src
 
@@ -158,12 +158,10 @@
 
 #+begin_src rust :noweb yes :noweb-ref day4_2:Дії
   let mut scores = vec![1; lines.len()];
-  let mut i = 0;
-  for line in lines {
+  for (i, line) in lines.into_iter().enumerate() {
       let line = line.unwrap();
       <<day4:Прочитати-картку>>
       <<day4_2:Обробити-картку>>
-      i += 1;
   }
 #+end_src
 

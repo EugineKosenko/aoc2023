@@ -29,7 +29,7 @@ impl FromStr for Range {
         let dest = cps.name("dest").unwrap().as_str().parse::<usize>().unwrap();
         let source = cps.name("source").unwrap().as_str().parse::<usize>().unwrap();
         let length = cps.name("length").unwrap().as_str().parse::<usize>().unwrap();
-        Ok(Self { dest: dest, source: source, length: length })
+        Ok(Self { dest, source, length })
     }
 }
 #[derive(Default, PartialEq, Debug)]
@@ -81,7 +81,7 @@ fn main() {
         static ref RE_SEEDS: regex::Regex = regex::Regex::new(r"^seeds: (?P<rest>[\d ]+)$").unwrap();
     }
     let cps = RE_SEEDS.captures(&line).unwrap();
-    let mut line = cps.name("rest").unwrap().as_str().to_owned();
+    let mut line = cps.name("rest").unwrap().as_str().to_string();
     lazy_static::lazy_static! {
         static ref RE_SEED: regex::Regex = regex::Regex::new(r"^(?P<id>\d+)( )?(?P<length>\d+)( )?(?P<rest>.*)$").unwrap();
     }
@@ -90,7 +90,7 @@ fn main() {
         let id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
         let length = cps.name("length").unwrap().as_str().parse::<usize>().unwrap();
         seeds.push((id, length));
-        line = cps.name("rest").unwrap().as_str().to_owned();
+        line = cps.name("rest").unwrap().as_str().to_string();
     }
     lines.next();
     let mut maps = Vec::<Map>::new();

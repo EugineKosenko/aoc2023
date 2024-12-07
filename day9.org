@@ -53,7 +53,7 @@
 Функція ~reduce~ будує для заданої послідовності похідну послідовність різниць.
 
 #+begin_src rust :noweb-ref day9:Визначення
-  fn reduce(src: &Vec<isize>) -> Vec<isize> {
+  fn reduce(src: &[isize]) -> Vec<isize> {
       let mut result = Vec::new();
       for i in 0..src.len()-1 {
           result.push(src[i+1]-src[i]);
@@ -81,21 +81,21 @@
 якщо послідовність містить тільки нулі, тоді послідовність розширюється нулем.
 
 #+begin_src rust :noweb-ref day9_1:Визначення
-  fn extend(src: &Vec<isize>) -> isize {
+  fn extend(src: &[isize]) -> isize {
       if src.iter().all(|v| *v == 0) {
           0
       } else {
-          src.last().unwrap() + extend(&reduce(&src))
+          src.last().unwrap() + extend(&reduce(src))
       }
   }
 #+end_src
 
 #+begin_src rust :noweb-ref day9_2:Визначення
-  fn extend(src: &Vec<isize>) -> isize {
+  fn extend(src: &[isize]) -> isize {
       if src.iter().all(|v| *v == 0) {
           0
       } else {
-          src.first().unwrap() - extend(&reduce(&src))
+          src.first().unwrap() - extend(&reduce(src))
       }
   }
 #+end_src

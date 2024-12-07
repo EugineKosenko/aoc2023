@@ -16,10 +16,10 @@ fn main() {
     for i in 0..grid.rows() {
         let mut j1 = 0;
         while j1 < grid.cols() {
-            if grid.get(i, j1).unwrap().is_digit(10) {
+            if grid.get(i, j1).unwrap().is_ascii_digit() {
                 let mut n = String::new();
                 let mut j2 = j1;
-                while j2 < grid.cols() && grid.get(i, j2).unwrap().is_digit(10) {
+                while j2 < grid.cols() && grid.get(i, j2).unwrap().is_ascii_digit() {
                     n.push(*grid.get(i, j2).unwrap());
                     j2 += 1;
                 }

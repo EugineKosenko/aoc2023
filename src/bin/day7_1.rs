@@ -56,7 +56,7 @@ fn cards(s: &str) -> Vec<Card> {
 enum Kind {
     High, OnePair, TwoPair, Three, Full, Four, Five
 }
-#[derive(PartialEq, Eq, PartialOrd, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 struct Hand {
     kind: Kind,
     cards: Vec<Card>
@@ -71,21 +71,21 @@ impl str::FromStr for Hand {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let cards = cards(s);
         let kind = kind(&cards);
-        Ok(Self {
-            kind: kind,
-            cards: cards
-        })
+        Ok(Self { kind, cards })
     }
 }
+impl cmp::PartialOrd for Hand {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl cmp::Ord for Hand {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        let result = match self.kind.cmp(&other.kind) {
-            cmp::Ordering::Equal => {
-                self.cards.cmp(&other.cards)
-            },
+        match self.kind.cmp(&other.kind) {
+            cmp::Ordering::Equal => self.cards.cmp(&other.cards),
             ord => ord
-        };
-        result
+        }
     }
 }
 #[test]
@@ -96,7 +96,7 @@ fn test_hand() {
 enum Card {
     D2, D3, D4, D5, D6, D7, D8, D9, T, J, Q, K, A
 }
-fn kind(cards: &Vec<Card>) -> Kind {
+fn kind(cards: &[Card]) -> Kind {
   let set = cards.iter().collect::<BTreeSet<&Card>>();
   let mut counts = set.iter()
       .map(|c| {
@@ -108,8 +108,7 @@ fn kind(cards: &Vec<Card>) -> Kind {
   counts.sort();
   counts.reverse();
   let counts = counts.iter()
-      .map(|c| { format!("{}", c) })
-      .collect::<String>();
+      .fold(String::default(), |s, c| s + &c.to_string());
   match counts.as_str() {
       "5" => Kind::Five,
       "41" => Kind::Four,
@@ -152,8 +151,8 @@ fn main() {
         .collect::<Vec<_>>();
     let mut result = 0;
     bids.sort_by(|b1, b2| b1.0.cmp(&b2.0));
-    for i in 0..bids.len() {
-        result += (i + 1) * bids[i].1;
+    for (i, bid) in bids.iter().enumerate() {
+        result += (i + 1) * bid.1;
     }
     println!("{}", result);
 }

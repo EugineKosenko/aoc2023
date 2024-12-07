@@ -9,9 +9,7 @@ struct Round {
 }
 
 impl Round {
-    fn is_fit(&self, limit: &Self) -> bool {
-        return self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue;
-    }
+    
 }
 impl FromStr for Round {
     type Err = String;
@@ -26,7 +24,7 @@ impl FromStr for Round {
             let cps = RE_ITEM.captures(&line).unwrap();
             let count = cps.name("count").unwrap().as_str().parse::<usize>().unwrap();
             let color = cps.name("color").unwrap().as_str().to_owned();
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
             result = match color.as_str() {
                 "red" => Round { red: count,..result },
                 "green" => Round { green: count,..result },
@@ -49,7 +47,7 @@ fn main() {
             static ref RE_GAME: regex::Regex = regex::Regex::new(r"^Game (?P<id>\d+): (?P<rest>.+)$").unwrap();
         }
         let cps = RE_GAME.captures(&line).unwrap();
-        line = cps.name("rest").unwrap().as_str().to_owned();
+        line = cps.name("rest").unwrap().as_str().to_string();
         lazy_static::lazy_static! {
             static ref RE_ROUND: regex::Regex = regex::Regex::new(r"^(?P<round>[^;]+)(; )?(?P<rest>.*)$").unwrap();
         }
@@ -57,7 +55,7 @@ fn main() {
         while !line.is_empty() {
             let cps = RE_ROUND.captures(&line).unwrap();
             let round = cps.name("round").unwrap().as_str().to_owned();
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
             let round = round.parse::<Round>().unwrap();
             result = Round {
                 red: result.red.max(round.red),
@@ -66,7 +64,7 @@ fn main() {
             };
         }
         let power = result.red * result.green * result.blue;
-        s = s + power;
+        s += power;
     }
     println!("{}", s);
 }

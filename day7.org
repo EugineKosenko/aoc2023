@@ -64,8 +64,8 @@
 Переберемо ставки за індексом, щоб отримати ранг, і обчислимо результат.
 
 #+begin_src rust :noweb-ref day7_1:Дії
-  for i in 0..bids.len() {
-      result += (i + 1) * bids[i].1;
+  for (i, bid) in bids.iter().enumerate() {
+      result += (i + 1) * bid.1;
   }
 #+end_src
 
@@ -174,7 +174,7 @@
 Функція ~kind~ обчислює тип по вектору карток.
 
 #+begin_src rust :noweb yes :noweb-ref day7_1:Визначення
-  fn kind(cards: &Vec<Card>) -> Kind {
+  fn kind(cards: &[Card]) -> Kind {
     <<day7_1:kind:Дії>>
   }
 #+end_src
@@ -207,8 +207,7 @@
 
 #+begin_src rust :noweb-ref day7_1:kind:Дії
   let counts = counts.iter()
-      .map(|c| { format!("{}", c) })
-      .collect::<String>();
+      .fold(String::default(), |s, c| s + &c.to_string());
 #+end_src
 
 Отримаємо тип за шаблоном кількостей.
@@ -244,7 +243,7 @@
 Функція ~kind~ обчислює тип по вектору карток.
 
 #+begin_src rust :noweb yes :noweb-ref day7_2:Визначення
-  fn kind(cards: &Vec<Card>) -> Kind {
+  fn kind(cards: &[Card]) -> Kind {
     <<day7_2:kind:Дії>>
   }
 #+end_src
@@ -292,8 +291,7 @@
 
 #+begin_src rust :noweb-ref day7_2:kind:Дії
   let counts = counts.iter()
-      .map(|c| { format!("{}", c) })
-      .collect::<String>();
+      .fold(String::default(), |s, c| s + &c.to_string());
 #+end_src
 
 Отримаємо тип за шаблоном кількостей.
@@ -328,7 +326,7 @@
 Рука зберігає тип и вектор карток.
 
 #+begin_src rust :noweb yes :noweb-ref day7:Визначення
-  #[derive(PartialEq, Eq, PartialOrd, Debug)]
+  #[derive(PartialEq, Eq, Debug)]
   struct Hand {
       kind: Kind,
       cards: Vec<Card>
@@ -348,10 +346,7 @@
       fn from_str(s: &str) -> Result<Self, Self::Err> {
           let cards = cards(s);
           let kind = kind(&cards);
-          Ok(Self {
-              kind: kind,
-              cards: cards
-          })
+          Ok(Self { kind, cards })
       }
   }
 #+end_src
@@ -363,29 +358,26 @@
 #+end_src
 
 #+begin_src rust :noweb yes :noweb-ref day7:Визначення
+  impl cmp::PartialOrd for Hand {
+      fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+          Some(self.cmp(other))
+      }
+  }
+
   impl cmp::Ord for Hand {
       fn cmp(&self, other: &Self) -> cmp::Ordering {
           <<day7:Hand:cmp:Дії>>
-          result
       }
   }
 #+end_src
 
-Порівняємо типи рук.
+Порівняємо типи рук. Якщо дві руки мають однаковий тип, то порівнюються лексікографічно набори карток.
 
 #+begin_src rust :noweb yes :noweb-ref day7:Hand:cmp:Дії
-  let result = match self.kind.cmp(&other.kind) {
-      cmp::Ordering::Equal => {
-          <<day7:Hand:cmp:Порівняти-набори>>
-      },
+  match self.kind.cmp(&other.kind) {
+      cmp::Ordering::Equal => self.cards.cmp(&other.cards),
       ord => ord
-  };
-#+end_src
-
-Якщо дві руки мають однаковий тип, то порівнюються лексікографічно набори карток.
-
-#+begin_src rust :noweb yes :noweb-ref day7:Hand:cmp:Порівняти-набори
-  self.cards.cmp(&other.cards)
+  }
 #+end_src
 
 ** Тестування читання
@@ -447,8 +439,8 @@
 Переберемо ставки за індексом, щоб отримати ранг, і обчислимо результат.
 
 #+begin_src rust :noweb-ref day7_2:Дії
-  for i in 0..bids.len() {
-      result += (i + 1) * bids[i].1;
+  for (i, bid) in bids.iter().enumerate() {
+      result += (i + 1) * bid.1;
   }
 #+end_src
 

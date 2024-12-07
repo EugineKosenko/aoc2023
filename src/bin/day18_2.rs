@@ -1,30 +1,9 @@
 use std::{fs, env, io::{self, BufRead}};
-use grid::Grid;
 
-type Board = Grid<char>;
-fn is_internal(right: isize, (row, col): &(isize, isize), circuit: &Vec<(isize, isize)>) -> bool {
-    let mut crosses_count = 0;
-    let mut i = col + 1;
-    while i <= right {
-        if !circuit.contains(&(*row, i)) {
-            i += 1;
-            continue;
-        }
-        let mut j = i + 1;
-        while j <= right && circuit.contains(&(*row, j)) { j += 1; }
-        if !circuit.contains(&(*row, j)) { j -= 1; }
-        if circuit.contains(&(row - 1, i)) && circuit.contains(&(row + 1, j)) ||
-            circuit.contains(&(row + 1, i)) && circuit.contains(&(row - 1, j)) {
-                crosses_count += 1;
-            }
-        i = j + 1;
-        i += 1;
-    }
-    crosses_count % 2 == 1
-}
+
 
 fn main() {
-    let mut result = 0;
+    let result = 0;
     let args: Vec<String> = env::args().collect();
     let file = fs::File::open(&args[1]).unwrap();
     let lines = io::BufReader::new(file)

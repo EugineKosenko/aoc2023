@@ -1,5 +1,4 @@
 use std::{fs, env, io::{self, BufRead}};
-use std::collections::BTreeMap;
 
 
 
@@ -15,10 +14,10 @@ fn main() {
     for i in 0..grid.rows() {
         let mut j1 = 0;
         while j1 < grid.cols() {
-            if grid.get(i, j1).unwrap().is_digit(10) {
+            if grid.get(i, j1).unwrap().is_ascii_digit() {
                 let mut n = String::new();
                 let mut j2 = j1;
-                while j2 < grid.cols() && grid.get(i, j2).unwrap().is_digit(10) {
+                while j2 < grid.cols() && grid.get(i, j2).unwrap().is_ascii_digit() {
                     n.push(*grid.get(i, j2).unwrap());
                     j2 += 1;
                 }
@@ -27,7 +26,7 @@ fn main() {
                 for k in (i.max(1)-1)..(grid.rows().min(i+2)) {
                     for l in (j1.max(1)-1)..(grid.cols().min(j2+1)) {
                         let c = *grid.get(k, l).unwrap();
-                        if !c.is_digit(10) && c != '.' {
+                        if !c.is_ascii_digit() && c != '.' {
                             is_adjacent = true;
                             break;
                         }

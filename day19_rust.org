@@ -6,6 +6,7 @@
   <<day19:Декларації>>
 
   <<day19:Визначення>>
+  <<day19_1:Визначення>>
 
   fn main() {
       let mut result = 0;
@@ -41,6 +42,18 @@
   }
 #+end_src
 
+#+begin_src rust :noweb yes :noweb-ref day19_1:Визначення
+  impl Flow {
+      <<day19_1:Flow:Визначення>>
+  }
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day19_2:Визначення
+  impl Flow {
+      <<day19_2:Flow:Визначення>>
+  }
+#+end_src
+
 ** Читання з рядка
 
 #+begin_src rust :noweb-ref day19:Декларації
@@ -62,7 +75,7 @@
 
 ** Обробка деталі
 
-#+begin_src rust :noweb-ref day19:Flow:Визначення
+#+begin_src rust :noweb-ref day19_1:Flow:Визначення
   fn next(&self, part: &Part) -> String {
       for rule in &self.0 {
           if let Some(flow) = rule.switch(part) {
@@ -85,7 +98,7 @@
 Розмір обробленої частини додається до результату, а решта стає набором для подальшої обробки. Якщо решти
 нема, подальша обробка не має сенсу, тому цикл переривається.
 
-#+begin_src rust :noweb yes :noweb-ref day19:Flow:Визначення
+#+begin_src rust :noweb yes :noweb-ref day19_2:Flow:Визначення
   fn size(&self, set: Set, program: &Program) -> usize {
       let mut result = 0;
       let mut set = set;
@@ -120,6 +133,18 @@
   }
 #+end_src
 
+#+begin_src rust :noweb yes :noweb-ref day19_1:Визначення
+  impl Rule {
+      <<day19_1:Rule:Визначення>>
+  }
+#+end_src
+
+#+begin_src rust :noweb yes :noweb-ref day19_2:Визначення
+  impl Rule {
+      <<day19_2:Rule:Визначення>>
+  }
+#+end_src
+
 ** Читання з рядка
 
 При читанні правила можливі два варіанти, з умовою та без. Якщо в рядку не можна знайти умови,
@@ -150,7 +175,7 @@
 
 ** Переключення потоку
 
-#+begin_src rust :noweb-ref day19:Rule:Визначення
+#+begin_src rust :noweb-ref day19_1:Rule:Визначення
   fn switch(&self, part: &Part) -> Option<String> {
       match &self.cond {
           None => Some(self.flow.clone()),
@@ -170,7 +195,7 @@
 Функція ~filter~ розділяє набір на частину, що обробляється, і решту. Для частини, що обробляється,
 визначається розмір (кількість наборів, що підходять для правила), а решта повертається.
 
-#+begin_src rust :noweb yes :noweb-ref day19:Rule:Визначення
+#+begin_src rust :noweb yes :noweb-ref day19_2:Rule:Визначення
   fn filter(&self, set: Set, program: &Program) -> (usize, Option<Set>) {
       <<day19:Rule:filter:Дії>>
       (size, rest)
@@ -182,7 +207,7 @@
 #+begin_src rust :noweb yes :noweb-ref day19:Rule:filter:Дії
   let (set, rest) = match &self.cond {
       None => (Some(set), None),
-      Some(cond) => set.split(&cond)
+      Some(cond) => set.split(cond)
   };
 #+end_src
 
@@ -224,7 +249,7 @@
 
 Деталь --- це просто мапа (~BTreeMap~) значень, які ідентифікуються категоріями.
 
-#+begin_src rust :noweb-ref day19:Визначення
+#+begin_src rust :noweb-ref day19_1:Визначення
   type Part = BTreeMap<String, usize>;
 #+end_src
 
@@ -247,7 +272,7 @@
 
 #+begin_src rust :noweb yes :noweb-ref day19:Прочитати-дані
   let mut program = Program::new();
-  while let Some(line) = lines.next() {
+  for line in lines.by_ref() {
       if line.is_empty() { break; }
       <<day19:Прочитати-процес>>
       program.insert(name, flow);
@@ -310,9 +335,9 @@
   <<day19:Декларації>>
 
   <<day19:Визначення>>
+  <<day19_2:Визначення>>
 
   fn main() {
-      let mut result = 0;
       <<day19:Прочитати-дані>>
       <<day19_2:Дії>>
       eprintln!("{:?}", result);
@@ -324,7 +349,7 @@
 /Набор/ представляє множину деталей, у якої значення кожної категорії представлено /діапазоном/
 (=range=), в максимумі від ~1~ до ~4000~.
 
-#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+#+begin_src rust :noweb yes :noweb-ref day19_2:Визначення
   #[derive(Debug, Clone)]
   struct Set(BTreeMap<String, Range>);
 
@@ -359,7 +384,7 @@
 
 * Діапазони
 
-#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+#+begin_src rust :noweb yes :noweb-ref day19_2:Визначення
   #[derive(Debug, Clone)]
   struct Range(usize, usize);
 
@@ -424,5 +449,5 @@
 Отримаємо результат як розмір початкового процесу ~in~.
 
 #+begin_src rust :noweb yes :noweb-ref day19_2:Дії
-  result = program.get("in").unwrap().size(set, &program);
+  let result = program.get("in").unwrap().size(set, &program);
 #+end_src

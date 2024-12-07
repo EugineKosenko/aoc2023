@@ -1,8 +1,9 @@
 use std::{fs, env, io::{self, BufRead}};
 use grid::Grid;
 
+
 type Board = Grid<char>;
-fn is_internal(right: isize, (row, col): &(isize, isize), circuit: &Vec<(isize, isize)>) -> bool {
+fn is_internal(right: isize, (row, col): &(isize, isize), circuit: &[(isize, isize)]) -> bool {
     let mut crosses_count = 0;
     let mut i = col + 1;
     while i <= right {

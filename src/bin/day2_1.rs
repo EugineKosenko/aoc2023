@@ -9,9 +9,7 @@ struct Round {
 }
 
 impl Round {
-    fn is_fit(&self, limit: &Self) -> bool {
-        return self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue;
-    }
+    
 }
 impl FromStr for Round {
     type Err = String;
@@ -26,7 +24,7 @@ impl FromStr for Round {
             let cps = RE_ITEM.captures(&line).unwrap();
             let count = cps.name("count").unwrap().as_str().parse::<usize>().unwrap();
             let color = cps.name("color").unwrap().as_str().to_owned();
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
             result = match color.as_str() {
                 "red" => Round { red: count,..result },
                 "green" => Round { green: count,..result },
@@ -35,6 +33,11 @@ impl FromStr for Round {
             };
         }
         Ok(result)
+    }
+}
+impl Round {
+    fn is_fit(&self, limit: &Self) -> bool {
+        self.red <= limit.red && self.green <= limit.green && self.blue <= limit.blue
     }
 }
 
@@ -56,19 +59,19 @@ fn main() {
         }
         let cps = RE_GAME.captures(&line).unwrap();
         let game_id = cps.name("id").unwrap().as_str().parse::<usize>().unwrap();
-        line = cps.name("rest").unwrap().as_str().to_owned();
+        line = cps.name("rest").unwrap().as_str().to_string();
         lazy_static::lazy_static! {
             static ref RE_ROUND: regex::Regex = regex::Regex::new(r"^(?P<round>[^;]+)(; )?(?P<rest>.*)$").unwrap();
         }
         while game_is_proper && !line.is_empty() {
             let cps = RE_ROUND.captures(&line).unwrap();
             let round = cps.name("round").unwrap().as_str().to_owned();
-            line = cps.name("rest").unwrap().as_str().to_owned();
+            line = cps.name("rest").unwrap().as_str().to_string();
             let round = round.parse::<Round>().unwrap();
             println!("{:?} --- {}", &round, round.is_fit(&limit));
             game_is_proper = round.is_fit(&limit);
         }
-        if game_is_proper { s = s + game_id }
+        if game_is_proper { s += game_id }
     }
     println!("{}", s);
 }

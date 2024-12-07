@@ -39,7 +39,7 @@
 Для кожного рядка оберемо тільки цифри. Перетворимо першу і останню цифри в ціле число.
 
 #+begin_src rust :noweb-ref day1_1:Обробити-рядок
-  let digits = line.chars().filter(|c| c.is_digit(10)).collect::<Vec<_>>();
+  let digits = line.chars().filter(|c| c.is_ascii_digit()).collect::<Vec<_>>();
   s += format!("{}{}", digits.first().unwrap(), digits.last().unwrap())
       .parse::<usize>().unwrap();
 #+end_src

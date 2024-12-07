@@ -25,12 +25,12 @@ fn main() {
     let mut grid = grid::Grid::<Vec<P>>::new(0, 0);
     let mut symb = grid::Grid::<char>::new(0, 0);
     let mut s = None;
-    let mut i = 0;
-    for line in lines {
-        let mut j = 0;
+    for (i, line) in lines.enumerate() {
+        let i = i as isize;
         let mut row = Vec::<Vec<P>>::new();
         let mut symb_row = Vec::<char>::new();
-        for c in line.chars() {
+        for (j, c) in line.chars().enumerate() {
+            let j = j as isize;
             row.push(
                 match c {
                     '.' | 'S' => vec![],
@@ -49,11 +49,9 @@ fn main() {
             } else {
                 symb_row.push(c);
             }
-            j += 1;
         }
         grid.push_row(row);
         symb.push_row(symb_row);
-        i += 1;
     };
     let s = s.unwrap();
     let neighbours = vec![P(-1, 0), P(0, 1), P(1, 0), P(0, -1)].into_iter()
@@ -79,19 +77,19 @@ fn main() {
     circuit.push(s);
     let mut p1 = s;
     let mut p2 = vec![p1+P(-1, 0), p1+P(0, 1), p1+P(1, 0), p1+P(0, -1)].into_iter()
-        .filter(|p| {
+        .find(|p| {
             0 <= p.r() && p.r() < (grid.rows() as isize)
                 && 0 <= p.c() && p.c() < (grid.cols() as isize)
                 && grid.get(p.r(), p.c()).unwrap().iter().any(|p| *p == s)
         })
-        .next().unwrap();
+        .unwrap();
     while p2 != s {
         circuit.push(p2);
         let p0 = p1;
         p1 = p2;
-        p2 = *grid.get(p2.r(), p2.c()).unwrap().into_iter()
-            .filter(|p| **p != p0)
-            .next().unwrap();
+        p2 = *grid.get(p2.r(), p2.c()).unwrap().iter()
+            .find(|p| **p != p0)
+            .unwrap();
     }
     for ((r, c), _) in symb.indexed_iter() {
         if !circuit.contains(&P(r as isize, c as isize)) {

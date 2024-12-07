@@ -18,7 +18,7 @@ fn main() {
     let mut lines = io::BufReader::new(file)
         .lines().map(|l| l.unwrap());
     let line = lines.next().unwrap();
-    let snippets = line.split(",");
+    let snippets = line.split(',');
     let result = snippets.fold(0, |a, s| a + hash(s));
     println!("{}", result);
 }

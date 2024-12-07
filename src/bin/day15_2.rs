@@ -20,21 +20,21 @@ fn main() {
     let mut lines = io::BufReader::new(file)
         .lines().map(|l| l.unwrap());
     let line = lines.next().unwrap();
-    let snippets = line.split(",");
+    let snippets = line.split(',');
     let mut result = 0;
     let mut map = Map::new();
     for snippet in snippets {
         if snippet.contains('=') {
-            let mut lens = snippet.split("=");
+            let mut lens = snippet.split('=');
             let label = lens.next().unwrap();
             let length = lens.next().unwrap().parse::<usize>().unwrap();
             let n = hash(label);
-            if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+            map.entry(n).or_default();
             let box_ = map.get_mut(&n).unwrap();
             let mut lens_not_found = true;
-            for i in 0..box_.len() {
-                if box_[i].0 == label {
-                    box_[i].1 = length;
+            for item in box_.iter_mut() {
+                if item.0 == label {
+                    item.1 = length;
                     lens_not_found = false;
                     break;
                 }
@@ -43,7 +43,7 @@ fn main() {
         } else {
             let label = &snippet[..snippet.len()-1];
             let n = hash(label);
-            if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+            map.entry(n).or_default();
             let box_ = map.get(&n).unwrap();
             map.insert(
                 n, box_.iter()
@@ -54,8 +54,8 @@ fn main() {
         }
     }
     for (n, box_) in map {
-        for i in 0..box_.len() {
-            result += (n+1) * (i+1) * box_[i].1;
+        for (i, item) in box_.iter().enumerate() {
+            result += (n+1) * (i+1) * item.1;
         }
     }
     println!("{}", result);

@@ -53,9 +53,9 @@ fn test_is_total() {
     assert!(is_total(&vec!['?', '?', '#', '#', '?', '?', '?', '?', '?', '?', '?', '?', '?'], 4));
 }
 #[contracts::debug_requires(ichunk <= chunks.len())]
-#[contracts::debug_requires(ichunk == chunks.len() -> ispring == 0)]
-#[contracts::debug_requires(ichunk < chunks.len() -> ispring <= chunks[ichunk].len())]
-fn is_possible(chunks: &Vec<Chunk>, ichunk: usize, ispring: usize, counts_len: usize) -> bool {
+#[contracts::debug_requires(ichunk != chunks.len() || ispring == 0)]
+#[contracts::debug_requires(ichunk >= chunks.len() || ispring <= chunks[ichunk].len())]
+fn is_possible(chunks: &[Chunk], ichunk: usize, ispring: usize, counts_len: usize) -> bool {
     counts_len >=
         if ichunk == chunks.len() {
             0
@@ -93,8 +93,8 @@ fn test_is_possible() {
 type Memo = BTreeMap<(usize, usize, usize), usize>;
 
 #[contracts::debug_requires(ichunk <= chunks.len())]
-#[contracts::debug_requires(ichunk == chunks.len() -> ispring == 0)]
-#[contracts::debug_requires(ichunk < chunks.len() -> ispring <= chunks[ichunk].len())]
+#[contracts::debug_requires(ichunk != chunks.len() || ispring == 0)]
+#[contracts::debug_requires(ichunk >= chunks.len() || ispring <= chunks[ichunk].len())]
 #[contracts::debug_requires(icount <= counts.len())]
 fn solutions(memo: &mut Memo, chunks: &Vec<Chunk>, ichunk: usize, ispring: usize, counts: &Vec<usize>, icount: usize) -> usize {
     if let Some(result) = memo.get(&(ichunk, ispring, icount)) {
@@ -173,7 +173,7 @@ fn main() {
             let mult = args[2].parse::<usize>().unwrap();
             let mut copy = springs.clone();
             for _ in 0..(mult-1) {
-                copy = copy + "?";
+                copy += "?";
                 copy += &springs;
             }
             let springs = copy;
@@ -184,12 +184,11 @@ fn main() {
             let counts = copy;
             let chunks = springs
                 .split('.')
-                .filter(|c| *c != "")
+                .filter(|c| !c.is_empty())
                 .map(|c| c.chars().collect::<Vec<_>>())
                 .collect::<Vec<_>>();
             let mut memo = Memo::new();
-            let result = solutions(&mut memo, &chunks, 0, 0, &counts, 0);
-            result
+            solutions(&mut memo, &chunks, 0, 0, &counts, 0)
         })
         .sum();
     println!("{}", result);

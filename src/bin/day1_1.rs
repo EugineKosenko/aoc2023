@@ -7,7 +7,7 @@ fn main() {
     let mut s = 0;
     for line in lines {
         let line = line.unwrap();
-        let digits = line.chars().filter(|c| c.is_digit(10)).collect::<Vec<_>>();
+        let digits = line.chars().filter(|c| c.is_ascii_digit()).collect::<Vec<_>>();
         s += format!("{}{}", digits.first().unwrap(), digits.last().unwrap())
             .parse::<usize>().unwrap();
     }

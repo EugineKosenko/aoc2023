@@ -40,7 +40,7 @@
 Візьмемо перший рядок і розділимо його по комі (~,~).
 
 #+begin_src rust :noweb-ref day15:Прочитати-дані
-  let snippets = line.split(",");
+  let snippets = line.split(',');
 #+end_src
 
 * Обчислення хешу
@@ -127,7 +127,7 @@
 При вставці виділяємо у фрагменті мітку та фокусну відстань.
 
 #+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
-  let mut lens = snippet.split("=");
+  let mut lens = snippet.split('=');
   let label = lens.next().unwrap();
   let length = lens.next().unwrap().parse::<usize>().unwrap();
 #+end_src
@@ -141,7 +141,7 @@
 Отримаємо скриньку за номером. Якщо такої скриньки ще немає на мапі, додаємо пусту скриньку.
 
 #+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
-  if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+  map.entry(n).or_default();
   let box_ = map.get_mut(&n).unwrap();
 #+end_src
 
@@ -150,9 +150,9 @@
 
 #+begin_src rust :noweb yes :noweb-ref day15_2:Вставити-линзу
   let mut lens_not_found = true;
-  for i in 0..box_.len() {
-      if box_[i].0 == label {
-          box_[i].1 = length;
+  for item in box_.iter_mut() {
+      if item.0 == label {
+          item.1 = length;
           lens_not_found = false;
           break;
       }
@@ -177,7 +177,7 @@
 Отримаємо скриньку за номером. Якщо такої скриньки ще немає на мапі, додаємо пусту скриньку.
 
 #+begin_src rust :noweb yes :noweb-ref day15_2:Видалити-линзи
-  if map.get(&n).is_none() { map.insert(n, Vec::new()); }
+  map.entry(n).or_default();
   let box_ = map.get(&n).unwrap();
 #+end_src
 
@@ -198,8 +198,8 @@
 
 #+begin_src rust :noweb yes :noweb-ref day15_2:Дії
   for (n, box_) in map {
-      for i in 0..box_.len() {
-          result += (n+1) * (i+1) * box_[i].1;
+      for (i, item) in box_.iter().enumerate() {
+          result += (n+1) * (i+1) * item.1;
       }
   }
 #+end_src
