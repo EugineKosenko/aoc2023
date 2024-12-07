@@ -25,10 +25,10 @@
   let args: Vec<String> = env::args().collect();
   let file = fs::File::open(&args[1]).unwrap();
   let lines = io::BufReader::new(file)
-      .lines().map(|l| l.unwrap());
+      .lines().map(|line| line.unwrap());
 #+end_src
 
-* Створення контуру
+** Створення контуру
 
 Рух може відбувалися у будь-якому напрямку, і координати точок контуру можуть бути довільними. Тому
 спочатку зберемо усі точки контуру в один вектор.
@@ -68,7 +68,7 @@
   let right = circuit.iter().map(|p| p.1).max().unwrap();
 #+end_src
 
-* Створення дошки
+** Створення дошки
 
 Створимо дошку.
 
@@ -92,7 +92,7 @@
   }
 #+end_src
 
-* Підрахунок внутрішніх точок
+** Підрахунок внутрішніх точок
 
 Для підрахунку перебираємо усі точки в площині контуру і визначаємо внутрішні точки. При цьому не
 враховуємо точки самого контуру. Не враховуємо також точки на кордоні майданчику, оскільки вони або
@@ -169,14 +169,14 @@
   result += circuit.len();
 #+end_src
 
-* COMMENT Відлагодження
+** COMMENT Відлагодження
 
 #+begin_src rust :noweb-ref day18_1:Дії
   //println!("{:?}", circuit);
   eprintln!("({} {}) ({} {})", left, top, right, bottom);
 #+end_src
 
-** Візуалізація
+*** Візуалізація
 
 Покажемо дошку
 
@@ -190,3 +190,66 @@
   }
   println!("</pre>");
 #+end_src
+
+* Частина 2
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day18_2.rs
+  <<day18:Декларації>>
+
+  <<day18:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day18:Прочитати-дані>>
+      <<day18_2:Дії>>
+      eprintln!("{:?}", result);
+  }
+#+end_src
+
+** Створення контуру
+
+Рух може відбувалися у будь-якому напрямку, і координати точок контуру можуть бути довільними. Тому
+спочатку зберемо усі точки контуру в один вектор.
+
+#+begin_src rust :noweb-ref day18_2:Дії
+  let (mut row, mut col) = (0, 0);
+  let mut circuit = vec![];
+#+end_src
+
+Для кожного рядка визначаємо напрямок і довжину, після чого рухаємось у завданому напрямку на завдану
+довжину.
+
+На відміну від першої частини, для визначення напрямку і довжини використовуємо третій елемент
+рядка. Його треба розібрати за допомогою регулярних виразів.
+
+#+begin_src rust :noweb yes :noweb-ref day18_2:Дії
+  lazy_static::lazy_static! {
+      static ref RE_ITEMS: regex::Regex = regex::Regex::new(r"^[URDL] \d+ \(#(?P<dist>[a-f\d]{5})(?P<dir>[0-3])\)$").unwrap();
+  }
+  for line in lines {
+      let cps = RE_ITEMS.captures(&line).unwrap();
+      let dir = cps.name("dir").unwrap().as_str().parse::<usize>().unwrap();
+      let dist = usize::from_str_radix(cps.name("dist").unwrap().as_str(), 16).unwrap();
+      for _ in 0..dist {
+          match dir {
+              3 => { row -= 1; },
+              0 => { col += 1; },
+              1 => { row += 1; },
+              2 => { col -= 1; },
+              _ => panic!("Invalid dir")
+          };
+          circuit.push((row, col));
+      }
+  }
+#+end_src
+
+Нормалізуємо координати, для цього знайдемо найменші і найбільші значення для кожної координати.
+
+#+begin_src rust :noweb yes :noweb-ref day18_2:Дії
+  let top = circuit.iter().map(|p| p.0).min().unwrap();
+  let bottom = circuit.iter().map(|p| p.0).max().unwrap();
+  let left = circuit.iter().map(|p| p.1).min().unwrap();
+  let right = circuit.iter().map(|p| p.1).max().unwrap();
+  println!("({} {}) ({} {})", top, left, bottom, right);
+#+end_src
+

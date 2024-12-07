@@ -1,0 +1,428 @@
+#+title: Adventure of Code, 2023, день 19, =Rust=
+
+* Частина 1
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day19_1.rs
+  <<day19:Декларації>>
+
+  <<day19:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day19:Прочитати-дані>>
+      <<day19_1:Дії>>
+      eprintln!("{:?}", result);
+  }
+#+end_src
+
+* Програма
+
+/Програма/ (=program=) представляє мапу (~BTreeMap~) /процесів/ (=workflow=), кожний з яких
+ідентифікується його назвою.
+
+#+begin_src rust :noweb-ref day19:Декларації
+  use std::collections::BTreeMap;
+#+end_src
+
+#+begin_src rust :noweb-ref day19:Визначення
+  type Program = BTreeMap<String, Flow>;
+#+end_src
+
+* Процеси
+
+Процес є послідовністю /правил/ (=rule=).
+
+#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+  #[derive(Debug)]
+  struct Flow(Vec<Rule>);
+
+  impl Flow {
+      <<day19:Flow:Визначення>>
+  }
+#+end_src
+
+** Читання з рядка
+
+#+begin_src rust :noweb-ref day19:Декларації
+  use std::str;
+#+end_src
+
+#+begin_src rust :noweb-ref day19:Визначення
+  impl str::FromStr for Flow {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          Ok(Flow(
+              s.split(',')
+                  .map(|rule| rule.parse().unwrap())
+                  .collect()))
+      }       
+  }
+#+end_src
+
+** Обробка деталі
+
+#+begin_src rust :noweb-ref day19:Flow:Визначення
+  fn next(&self, part: &Part) -> String {
+      for rule in &self.0 {
+          if let Some(flow) = rule.switch(part) {
+              return flow;
+          }
+      }
+      unreachable!();
+  }
+#+end_src
+
+** Обробка набору
+
+Функція ~size~ підраховує розмір набору (кількість деталей) після обробки процесом.
+
+Кожне правило обробляє заданий набір і повертає пару:
+
+- розмір обробленої частини набору, яка підходить для умови правила;
+- решту набору, яка не підходить для умови.
+
+Розмір обробленої частини додається до результату, а решта стає набором для подальшої обробки. Якщо решти
+нема, подальша обробка не має сенсу, тому цикл переривається.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Flow:Визначення
+  fn size(&self, set: Set, program: &Program) -> usize {
+      let mut result = 0;
+      let mut set = set;
+      for rule in &self.0 {
+          let (size, rest) = rule.filter(set, program);
+          result += size;
+          match rest {
+              None => { break; },
+              Some(rest) => { set = rest; }
+          }
+      }
+      result
+  }
+#+end_src
+
+* Правила
+
+Правило містить:
+
+- необов'язкову /умову/ (=condition=);
+- назву процеса.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+  #[derive(Debug)]
+  struct Rule {
+      cond: Option<Cond>,
+      flow: String
+  }
+
+  impl Rule {
+      <<day19:Rule:Визначення>>
+  }
+#+end_src
+
+** Читання з рядка
+
+При читанні правила можливі два варіанти, з умовою та без. Якщо в рядку не можна знайти умови,
+вважається, що все правило --- це назва процесу без умови.
+
+#+begin_src rust :noweb-ref day19:Визначення
+  impl str::FromStr for Rule {
+      type Err = String;
+
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+          lazy_static::lazy_static! {
+              static ref RE_RULE: regex::Regex = regex::Regex::new(r"^(?P<cat>[xmas])(?P<sign>[<>])(?P<value>\d+):(?P<flow>[a-zAR]+)$").unwrap();
+          }
+          let (cond, flow) = match RE_RULE.captures(s) {
+              None => { (None, s.to_string()) },
+              Some(cps) => {
+                  let cat = cps.name("cat").unwrap().as_str().to_string();
+                  let sign = cps.name("sign").unwrap().as_str().chars().next().unwrap();
+                  let value = cps.name("value").unwrap().as_str().parse::<usize>().unwrap();
+                  let flow = cps.name("flow").unwrap().as_str().to_string();
+                  (Some(Cond { cat, sign, value }), flow)
+              }
+          };
+          Ok(Rule { cond, flow })
+      }       
+  }
+#+end_src
+
+** Переключення потоку
+
+#+begin_src rust :noweb-ref day19:Rule:Визначення
+  fn switch(&self, part: &Part) -> Option<String> {
+      match &self.cond {
+          None => Some(self.flow.clone()),
+          Some(cond) => {
+              if match cond.sign {
+                  '<' => *part.get(&cond.cat).unwrap() < cond.value,
+                  '>' => *part.get(&cond.cat).unwrap() > cond.value,
+                  sign => panic!("Unexpected sign {}", sign)
+              } { Some(self.flow.clone()) } else { None }
+          }
+      }
+  }
+#+end_src
+
+** Обробка набору
+
+Функція ~filter~ розділяє набір на частину, що обробляється, і решту. Для частини, що обробляється,
+визначається розмір (кількість наборів, що підходять для правила), а решта повертається.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Rule:Визначення
+  fn filter(&self, set: Set, program: &Program) -> (usize, Option<Set>) {
+      <<day19:Rule:filter:Дії>>
+      (size, rest)
+  }
+#+end_src
+
+Розділимо набір. Якщо правило безумовне, то решта пуста, і обробляється весь набір.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Rule:filter:Дії
+  let (set, rest) = match &self.cond {
+      None => (Some(set), None),
+      Some(cond) => set.split(&cond)
+  };
+#+end_src
+
+Для прийнятого набору отримуємо його розмір, для відхиленого набору його розмір дорівнює нулю. Для іншого
+процесу обчислюємо розмір обраного набору для цього процесу.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Rule:filter:Дії
+  let size = match self.flow.as_str() {
+      "R" => 0,
+      "A" => match set {
+          None => 0,
+          Some(set) => set.size()
+      },
+      flow => match set {
+          None => 0,
+          Some(set) => program.get(flow).unwrap().size(set, program)
+      }
+  };
+#+end_src
+
+* Умови
+
+Умова містить:
+
+- назву /категорії/ (=category=);
+- /знак/ порівняння (=sign=), який може бути або "більше" (~>~), або "менше" (~<~);
+- /значення/ атрибуту (=value=) для порівняння.
+
+#+begin_src rust :noweb-ref day19:Визначення
+  #[derive(Debug)]
+  struct Cond {
+      cat: String,
+      sign: char,
+      value: usize
+  }
+#+end_src
+
+* Деталі
+
+Деталь --- це просто мапа (~BTreeMap~) значень, які ідентифікуються категоріями.
+
+#+begin_src rust :noweb-ref day19:Визначення
+  type Part = BTreeMap<String, usize>;
+#+end_src
+
+* Читання даних
+
+#+begin_src rust :noweb-ref day19:Декларації
+  use std::{fs, env, io::{self, BufRead}};
+#+end_src
+
+#+begin_src rust :noweb-ref day19:Прочитати-дані
+  let args: Vec<String> = env::args().collect();
+  let file = fs::File::open(&args[1]).unwrap();
+  let mut lines = io::BufReader::new(file)
+      .lines().map(|line| line.unwrap());
+#+end_src
+
+** Програма
+
+Програма читається як послідовність процесів доти, поки не буде отриманий пустий рядок.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Прочитати-дані
+  let mut program = Program::new();
+  while let Some(line) = lines.next() {
+      if line.is_empty() { break; }
+      <<day19:Прочитати-процес>>
+      program.insert(name, flow);
+  }
+#+end_src
+
+Розберемо процес за допомогою регулярного виразу.
+
+#+begin_src rust :noweb-ref day19:Прочитати-процес
+  lazy_static::lazy_static! {
+      static ref RE_FLOW: regex::Regex = regex::Regex::new(r"^(?P<name>[a-z]+)\{(?P<flow>.+)\}$").unwrap();
+  }
+  let cps = RE_FLOW.captures(&line).unwrap();
+  let name = cps.name("name").unwrap().as_str().to_string();
+  let flow = cps.name("flow").unwrap().as_str().parse::<Flow>().unwrap();
+#+end_src
+
+* Обробка деталі
+
+#+begin_src rust :noweb yes :noweb-ref day19_1:Дії
+  for line in lines {
+      let mut part = Part::new();
+      for bind in line
+          .strip_prefix('{').unwrap()
+          .strip_suffix('}').unwrap()
+          .split(',') {
+              let (cat, value) = bind.split_once('=').unwrap();
+              part.insert(cat.to_string(), value.parse().unwrap());
+          }
+      <<day19_1:Обробити-деталь>>
+  }
+#+end_src
+
+Встановимо початковий процес.
+
+#+begin_src rust :noweb yes :noweb-ref day19_1:Обробити-деталь
+  let mut flow = "in".to_string();
+#+end_src
+
+Повторюємо обробку, поки в результаті обробки чергового процесу не з'явиться стан /прийняття/ (~A~-ccept) або
+/відмови/ (~R~-eject).
+
+#+begin_src rust :noweb yes :noweb-ref day19_1:Обробити-деталь
+  while !["A", "R"].contains(&flow.as_str()) {
+      flow = program.get(&flow).unwrap().next(&part);
+  }
+#+end_src
+
+Якщо деталь прийнято, додаємо її рейтинг до результату.
+
+#+begin_src rust :noweb yes :noweb-ref day19_1:Обробити-деталь
+  if flow == "A" {
+      result += part.values().sum::<usize>();
+  }
+#+end_src
+
+* Частина 2
+
+#+begin_src rust :noweb yes :mkdirp yes :tangle src/bin/day19_2.rs
+  <<day19:Декларації>>
+
+  <<day19:Визначення>>
+
+  fn main() {
+      let mut result = 0;
+      <<day19:Прочитати-дані>>
+      <<day19_2:Дії>>
+      eprintln!("{:?}", result);
+  }
+#+end_src
+
+* Набори
+
+/Набор/ представляє множину деталей, у якої значення кожної категорії представлено /діапазоном/
+(=range=), в максимумі від ~1~ до ~4000~.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+  #[derive(Debug, Clone)]
+  struct Set(BTreeMap<String, Range>);
+
+  impl Set {
+      <<day19:Set:Визначення>>
+  }
+#+end_src
+
+** Розмір
+
+#+begin_src rust :noweb yes :noweb-ref day19:Set:Визначення
+  fn size(&self) -> usize { self.0.values().map(|range| range.size()).product() }
+#+end_src
+
+** Розподіл
+
+#+begin_src rust :noweb yes :noweb-ref day19:Set:Визначення
+  fn split(&self, cond: &Cond) -> (Option<Self>, Option<Self>) {
+      let (selected, rest) = self.0.get(&cond.cat).unwrap().split(cond.sign, cond.value);
+      (selected.map(|selected| {
+          let mut set = self.0.clone();
+          set.insert(cond.cat.clone(), selected);
+          Self(set)
+      }),
+       rest.map(|rest| {
+          let mut set = self.0.clone();
+          set.insert(cond.cat.clone(), rest);
+          Self(set)
+      }))
+  }
+#+end_src
+
+* Діапазони
+
+#+begin_src rust :noweb yes :noweb-ref day19:Визначення
+  #[derive(Debug, Clone)]
+  struct Range(usize, usize);
+
+  impl Range {
+      <<day19:Range:Визначення>>
+  }
+#+end_src
+
+** Розмір
+
+#+begin_src rust :noweb yes :noweb-ref day19:Range:Визначення
+  fn size(&self) -> usize { self.1 - self.0 + 1 }
+#+end_src
+
+** Розподіл
+
+#+begin_src rust :noweb yes :noweb-ref day19:Range:Визначення
+  fn split(&self, sign: char, value: usize) -> (Option<Self>, Option<Self>) {
+      <<day19:Range:split:Дії>>
+  }
+#+end_src
+
+Розподіл діапазону суттєво залежить від знаку дії.
+
+#+begin_src rust :noweb yes :noweb-ref day19:Range:split:Дії
+  match sign {
+      '<' => {
+          if value <= self.0 {
+              (None, Some(self.clone()))
+          } else if self.1 < value {
+              (Some(self.clone()), None)
+          } else {
+              (Some(Self(self.0, value - 1)), Some(Self(value, self.1)))
+          }
+      },
+      '>' => {
+          if value < self.0 {
+              (Some(self.clone()), None)
+          } else if self.1 <= value {
+              (None, Some(self.clone()))
+          } else {
+              (Some(Self(value + 1, self.1)), Some(Self(self.0, value)))
+          }
+      },
+      sign => panic!("Unexpected sign {}", sign)
+  }
+#+end_src
+
+* Обробка наборів
+
+Встановимо максимальний набір.
+
+#+begin_src rust :noweb yes :noweb-ref day19_2:Дії
+  let set = Set(BTreeMap::from([
+      ("x".to_string(), Range(1, 4000)),
+      ("m".to_string(), Range(1, 4000)),
+      ("a".to_string(), Range(1, 4000)),
+      ("s".to_string(), Range(1, 4000))
+  ]));
+#+end_src
+
+Отримаємо результат як розмір початкового процесу ~in~.
+
+#+begin_src rust :noweb yes :noweb-ref day19_2:Дії
+  result = program.get("in").unwrap().size(set, &program);
+#+end_src

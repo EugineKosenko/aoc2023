@@ -28,7 +28,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let file = fs::File::open(&args[1]).unwrap();
     let lines = io::BufReader::new(file)
-        .lines().map(|l| l.unwrap());
+        .lines().map(|line| line.unwrap());
     let (mut row, mut col) = (0, 0);
     let mut circuit = vec![];
     for line in lines {
